@@ -1,0 +1,232 @@
+{
+  "forward": {
+    "total_trades": 140,
+    "wins": 61,
+    "losses": 79,
+    "win_rate": 43.57,
+    "max_consecutive_wins": 5,
+    "max_consecutive_losses": 9,
+    "avg_rr": 2.39,
+    "net_R": 69.0,
+    "gross_profit_R": 148.0,
+    "gross_loss_R": 79.0,
+    "profit_factor": 1.87,
+    "total_pnl_pips": 170.5,
+    "date_range": [
+      "2026-02-02",
+      "2026-09-03"
+    ],
+    "per_setup": {
+      "Friday | USDCAD | 09:30 PM": {
+        "trades": 16,
+        "wins": 6,
+        "losses": 10,
+        "win_rate": 37.5
+      },
+      "Monday | USDCAD | 09:15 PM": {
+        "trades": 16,
+        "wins": 8,
+        "losses": 8,
+        "win_rate": 50.0
+      },
+      "Thursday | EURUSD | 05:00 PM": {
+        "trades": 31,
+        "wins": 16,
+        "losses": 15,
+        "win_rate": 51.6
+      },
+      "Thursday | GBPUSD | 09:15 AM": {
+        "trades": 30,
+        "wins": 9,
+        "losses": 21,
+        "win_rate": 30.0
+      },
+      "Thursday | USDCAD | 04:45 PM": {
+        "trades": 16,
+        "wins": 7,
+        "losses": 9,
+        "win_rate": 43.8
+      },
+      "Wednesday | GBPUSD | 08:30 PM": {
+        "trades": 31,
+        "wins": 15,
+        "losses": 16,
+        "win_rate": 48.4
+      }
+    },
+    "per_pair": {
+      "EURUSD": {
+        "trades": 31,
+        "wins": 16,
+        "losses": 15,
+        "win_rate": 51.6
+      },
+      "GBPUSD": {
+        "trades": 61,
+        "wins": 24,
+        "losses": 37,
+        "win_rate": 39.3
+      },
+      "USDCAD": {
+        "trades": 48,
+        "wins": 21,
+        "losses": 27,
+        "win_rate": 43.8
+      }
+    }
+  },
+  "backtest_period": {
+    "total_trades": 136,
+    "wins": 88,
+    "losses": 48,
+    "win_rate": 64.71,
+    "max_consecutive_wins": 9,
+    "max_consecutive_losses": 4,
+    "avg_rr": 2.48,
+    "gross_profit_R": 216.5,
+    "gross_loss_R": 48.0,
+    "net_R": 168.5,
+    "profit_factor_R": 4.51,
+    "total_pnl_pips": 992.2,
+    "day_stats": {
+      "Monday": {
+        "trades": 26,
+        "wins": 16,
+        "losses": 10,
+        "win_rate": 61.5
+      },
+      "Wednesday": {
+        "trades": 26,
+        "wins": 16,
+        "losses": 10,
+        "win_rate": 61.5
+      },
+      "Thursday": {
+        "trades": 57,
+        "wins": 39,
+        "losses": 18,
+        "win_rate": 68.4
+      },
+      "Friday": {
+        "trades": 27,
+        "wins": 17,
+        "losses": 10,
+        "win_rate": 63.0
+      }
+    },
+    "pair_stats": {
+      "EURUSD": {
+        "trades": 24,
+        "wins": 16,
+        "losses": 8,
+        "win_rate": 66.7
+      },
+      "GBPUSD": {
+        "trades": 37,
+        "wins": 23,
+        "losses": 14,
+        "win_rate": 62.2
+      },
+      "USDCAD": {
+        "trades": 75,
+        "wins": 49,
+        "losses": 26,
+        "win_rate": 65.3
+      }
+    },
+    "per_setup": [
+      {
+        "setup": "Friday|USDCAD|09:30 PM",
+        "trades": 27,
+        "wins": 17,
+        "losses": 10,
+        "win_rate": 63.0
+      },
+      {
+        "setup": "Monday|USDCAD|09:15 PM",
+        "trades": 26,
+        "wins": 16,
+        "losses": 10,
+        "win_rate": 61.5
+      },
+      {
+        "setup": "Wednesday|GBPUSD|08:30 PM",
+        "trades": 26,
+        "wins": 16,
+        "losses": 10,
+        "win_rate": 61.5
+      },
+      {
+        "setup": "Thursday|USDCAD|04:45 PM",
+        "trades": 22,
+        "wins": 16,
+        "losses": 6,
+        "win_rate": 72.7
+      },
+      {
+        "setup": "Thursday|EURUSD|05:00 PM",
+        "trades": 24,
+        "wins": 16,
+        "losses": 8,
+        "win_rate": 66.7
+      },
+      {
+        "setup": "Thursday|GBPUSD|09:15 AM",
+        "trades": 11,
+        "wins": 7,
+        "losses": 4,
+        "win_rate": 63.6
+      }
+    ],
+    "monthly": [
+      {
+        "month": "2025-08",
+        "trades": 22,
+        "wins": 14,
+        "losses": 8,
+        "win_rate": 63.6,
+        "net_R": 28.0
+      },
+      {
+        "month": "2025-09",
+        "trades": 23,
+        "wins": 16,
+        "losses": 7,
+        "win_rate": 69.6,
+        "net_R": 32.5
+      },
+      {
+        "month": "2025-10",
+        "trades": 26,
+        "wins": 17,
+        "losses": 9,
+        "win_rate": 65.4,
+        "net_R": 31.0
+      },
+      {
+        "month": "2025-11",
+        "trades": 20,
+        "wins": 11,
+        "losses": 9,
+        "win_rate": 55.0,
+        "net_R": 19.0
+      },
+      {
+        "month": "2025-12",
+        "trades": 21,
+        "wins": 13,
+        "losses": 8,
+        "win_rate": 61.9,
+        "net_R": 25.5
+      },
+      {
+        "month": "2026-01",
+        "trades": 24,
+        "wins": 17,
+        "losses": 7,
+        "win_rate": 70.8,
+        "net_R": 32.5
+      }
+    ]
+  }
+}
