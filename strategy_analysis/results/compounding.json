@@ -1,0 +1,53 @@
+{
+  "report_fixed_25k": {
+    "method": "fixed",
+    "initial_capital": 25000.0,
+    "final_balance": 58700.0,
+    "total_profit": 33700.0,
+    "total_return_pct": 134.8,
+    "peak_balance": 58700.0,
+    "max_drawdown": 800.0,
+    "max_drawdown_pct": 1.92,
+    "total_trades": 136,
+    "wins": 88,
+    "losses": 48,
+    "win_rate": 64.71,
+    "profit_factor": 4.51,
+    "gross_profit": 43300.0,
+    "gross_loss": 9600.0
+  },
+  "default_milestone_50": {
+    "method": "milestone",
+    "initial_capital": 50.0,
+    "final_balance": 13817.5,
+    "total_profit": 13767.5,
+    "total_return_pct": 27535.0,
+    "peak_balance": 13817.5,
+    "max_drawdown": 400.0,
+    "max_drawdown_pct": 21.67,
+    "total_trades": 136,
+    "wins": 88,
+    "losses": 48,
+    "win_rate": 64.71,
+    "profit_factor": 4.7,
+    "gross_profit": 17485.0,
+    "gross_loss": 3717.5
+  },
+  "full_compound_50": {
+    "method": "full_compound",
+    "initial_capital": 50.0,
+    "final_balance": 76619012.14,
+    "total_profit": 76618962.14,
+    "total_return_pct": 153237924.27,
+    "peak_balance": 76619012.14,
+    "max_drawdown": 4129289.48,
+    "max_drawdown_pct": 34.39,
+    "total_trades": 136,
+    "wins": 88,
+    "losses": 48,
+    "win_rate": 64.71,
+    "profit_factor": 6.05,
+    "gross_profit": 91803662.48,
+    "gross_loss": 15184700.28
+  }
+}
