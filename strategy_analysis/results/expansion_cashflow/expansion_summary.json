@@ -50,7 +50,7 @@
   },
   "mc_4y_savings": [
     {
-      "scenario": "no_edge",
+      "scenario": "full_edge_risk_aware",
       "median_saved": 32597547.08,
       "p5_saved": 4535371.8445,
       "p25_saved": 15052841.9525,
@@ -61,7 +61,7 @@
       "median_funded": 12600000.0
     },
     {
-      "scenario": "no_edge",
+      "scenario": "full_edge_aggressive",
       "median_saved": 28047329.585,
       "p5_saved": 4395935.0335,
       "p25_saved": 10482497.8575,
@@ -72,7 +72,7 @@
       "median_funded": 12600000.0
     },
     {
-      "scenario": "no_edge",
+      "scenario": "no_edge_risk_aware",
       "median_saved": 304.175,
       "p5_saved": -62.82,
       "p25_saved": -62.82,

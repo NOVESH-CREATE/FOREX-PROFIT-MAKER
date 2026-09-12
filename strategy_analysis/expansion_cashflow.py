@@ -364,7 +364,7 @@ def main():
         cash = np.array([x[0] for x in arr])
         accs = np.array([x[1] for x in arr])
         fund = np.array([x[2] for x in arr])
-        rows.append({"scenario": scen, "median_saved": float(np.median(cash)),
+        rows.append({"scenario": key, "median_saved": float(np.median(cash)),
                      "p5_saved": float(np.percentile(cash, 5)),
                      "p25_saved": float(np.percentile(cash, 25)),
                      "p75_saved": float(np.percentile(cash, 75)),
