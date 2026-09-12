@@ -1,3 +1,9 @@
+> ⚠️ **SUPERSEDED — 13 Sep 2026:** LEGACY core-3 scenario (Mon USDCAD + Wed
+> GBPUSD + Thu EURUSD @ 1% risk), kept as historical evidence only. The FINAL
+> plan of record is **EU+GU only @ 1.5% risk** → final dashboard:
+> `../eu_gu_1pct5/index.html` · final report:
+> `../eu_gu_1pct5/EU_GU_FUNDED_REPORT.md`.
+
 # Multi-Account Growth Report — Classic $5K + add-ons (1 Feb → 9 Sep 2026)
 
 > **Plan:** start ONE Classic $5K account on 1 Feb and trade ONLY the core-3 setups (Mon USDCAD 15:45 GMT RR3 · Wed GBPUSD 15:00 GMT RR3 · Thu EURUSD 11:30 GMT RR2, 5-min breakout) at **1% risk** per trade. Every time an account's fee is refunded (after its 2nd payout), do NOT withdraw it — use it to buy a NEW $5K account that trades the same signals from that day. Add-ons: **90% split from day one**, **8% max loss**.
