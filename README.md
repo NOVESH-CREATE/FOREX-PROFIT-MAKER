@@ -53,6 +53,9 @@ combined balance **$28,025** · total paid out **$7,965** by 9 Sep 2026.
 
 - `funded_plan.py` — the one script the plan needs (simulation + chart + report)
 - `strategy_analysis/backtest_engine.py` — ORB trade engine (kept, imported by `funded_plan.py`)
-- `*.htm` — the 4 keeper MT5 history exports (EURUSD M15/M5, GBPUSD M15, USDCAD M15)
+- `strategy_analysis/m5_breakout_test.py` — USDCAD 15-min-mother + **5-min-breakout RR1:2 test** (4 variants, backtest + forward, self-validating: refuses to output if any data/trade gate fails)
+- `strategy_analysis/data_audit.py` — verifies every .htm export (genuine M5/M15 spacing, old-vs-new identity, M5→M15 rebuild vs real M15)
+- `*.htm` — the MT5 history exports (EURUSD M15/M5, GBPUSD M15, USDCAD M15/M5)
+- `strategy_analysis/results/m5_breakout/` — **5-min breakout test deliverable** (`M5_BREAKOUT_REPORT.md`, `equity_comparison.html`, trades CSVs, `summary.json`). Verdict: 5-min entry + RR1:2 does **not** improve USDCAD (forward netR −1.68R → −3.62R); EURUSD forward test verified correct (+13.0R backtest / +12.7R forward)
 - `strategy_analysis/results/multiacct/` — final deliverable (interactive chart + report)
 - `strategy_analysis/results/classic_addon/` — Classic add-on payout-table reference
