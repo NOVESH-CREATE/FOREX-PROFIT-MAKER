@@ -1,0 +1,86 @@
+{
+  "prices": {
+    "5K": 62.82,
+    "10K": 113.22,
+    "25K": 207.22,
+    "50K": 522.22,
+    "100K": 1007.82,
+    "200K": 1574.82
+  },
+  "deterministic_13m": {
+    "out_of_pocket": 62.82,
+    "total_received": 25161.15,
+    "total_spent_on_accounts": 3488.12,
+    "cash_saved": 21673.03,
+    "purchases": [
+      {
+        "date": "2025-09-03",
+        "size": 5000,
+        "price": 62.82
+      },
+      {
+        "date": "2025-11-27",
+        "size": 10000,
+        "price": 113.22
+      },
+      {
+        "date": "2026-02-05",
+        "size": 25000,
+        "price": 207.22
+      },
+      {
+        "date": "2026-03-12",
+        "size": 50000,
+        "price": 522.22
+      },
+      {
+        "date": "2026-06-11",
+        "size": 100000,
+        "price": 1007.82
+      },
+      {
+        "date": "2026-08-06",
+        "size": 200000,
+        "price": 1574.82
+      }
+    ],
+    "fleet": 6,
+    "funded": 535000,
+    "breaches": 0
+  },
+  "mc_4y_savings": [
+    {
+      "scenario": "no_edge",
+      "median_saved": 32597547.08,
+      "p5_saved": 4535371.8445,
+      "p25_saved": 15052841.9525,
+      "p75_saved": 58446172.9775,
+      "p95_saved": 71831401.13599999,
+      "p_saved_under_10k": 0.017,
+      "median_accounts": 12.0,
+      "median_funded": 12600000.0
+    },
+    {
+      "scenario": "no_edge",
+      "median_saved": 28047329.585,
+      "p5_saved": 4395935.0335,
+      "p25_saved": 10482497.8575,
+      "p75_saved": 57420822.52249999,
+      "p95_saved": 75082239.979,
+      "p_saved_under_10k": 0.015,
+      "median_accounts": 15.0,
+      "median_funded": 12600000.0
+    },
+    {
+      "scenario": "no_edge",
+      "median_saved": 304.175,
+      "p5_saved": -62.82,
+      "p25_saved": -62.82,
+      "p75_saved": 24295.58,
+      "p95_saved": 99974.701,
+      "p_saved_under_10k": 0.722,
+      "median_accounts": 1.0,
+      "median_funded": 5000.0
+    }
+  ]
+}
