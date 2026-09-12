@@ -29,11 +29,10 @@ signals (multi-account growth). No other setups, no extra entries.
 
 | Day | Pair | ORB candle (GMT) | Entry | RR |
 |---|---|---|---|---|
-| Monday | USDCAD | 15:45 | 15-min close-breakout | 1:3 |
 | Wednesday | GBPUSD | 15:00 | 15-min close-breakout | 1:3 |
 | Thursday | EURUSD | 11:30 | 5-min close-breakout | 1:2 |
 
-Risk is always **1% of the account's level** per trade — it never increases by
+Risk is always **1.5% of the account's level** per trade — it never increases by
 choice; a scaled account's dollar risk grows only because its funded level grew.
 
 ## Funded-account rules modeled (Classic + add-ons)
