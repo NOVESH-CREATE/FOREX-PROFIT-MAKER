@@ -127,14 +127,17 @@ class RealTradesCompounding:
             # Safety: don't risk more than 50% of current balance
             risk = min(risk, balance * 0.5)
             
-            # Get ACTUAL RR from this specific trade
-            trade_rr = trade['rr_ratio']
+            # Calculate actual R-multiple from the real pip outcome
+            # (EOD partial closes and small wins get partial credit, not full RR)
+            risk_pips = trade.get('risk_pips', 0)
+            pnl_pips = trade.get('pnl_pips', 0)
+            if risk_pips:
+                actual_r = pnl_pips / risk_pips
+            else:
+                actual_r = trade['rr_ratio'] if trade['result'] == 'WIN' else -1.0
             
             # Calculate P&L based on REAL result
-            if trade['result'] == 'WIN':
-                pnl = risk * trade_rr
-            else:
-                pnl = -risk
+            pnl = risk * actual_r
             
             # Update balance
             old_balance = balance
@@ -161,7 +164,7 @@ class RealTradesCompounding:
                 'pair': trade['pair'],
                 'time_ist': trade.get('orb_time_ist', ''),
                 'direction': trade.get('direction', ''),
-                'rr': trade_rr,
+                'rr': actual_r,
                 'result': trade['result'],
                 'risk_used': round(risk, 2),
                 'pnl': round(pnl, 2),

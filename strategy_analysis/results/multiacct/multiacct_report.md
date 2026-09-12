@@ -4,43 +4,26 @@
 
 ## Snapshot as of 9 Sep 2026
 
-- **Active accounts: 4**
-- **Combined funded capital: $27,500**
-- **Combined account balance: $28,025.00**
-- **Total paid out to you: $7,965.00**
+- **Active accounts: 1**
+- **Combined funded capital: $5,000**
+- **Combined account balance: $5,104.14**
+- **Total paid out to you: $579.03**
 
 ## Account-by-account
 
 | Account | Opened | Signals traded | Payouts | Paid out | Fee refund | Level now | Balance now |
 |---|---|---|---|---|---|---|---|
-| #1 | 2026-02-01 | 94 | 6 | $4,185.00 | 2026-04-06 | $10,000 | $9,900.00 |
-| #2 | 2026-04-06 | 67 | 4 | $2,610.00 | 2026-06-10 | $7,500 | $7,575.00 |
-| #3 | 2026-06-10 | 39 | 2 | $1,170.00 | 2026-08-31 | $5,000 | $5,200.00 |
-| #4 | 2026-08-31 | 4 | 0 | $0.00 | — | $5,000 | $5,350.00 |
+| #1 | 2026-02-01 | 94 | 1 | $579.03 | — | $5,000 | $5,104.14 |
 
 ## Payout ledger (chronological)
 
 | Date | Account | Payout # | Gross | Split | You receive | Cumulative | Note |
 |---|---|---|---|---|---|---|---|
-| 2026-02-18 | #1 | 1 | $600.00 | 90% | $540.00 | $540.00 |  |
-| 2026-04-06 | #1 | 2 | $650.00 | 90% | $585.00 | $1,125.00 | **FEE REFUND → new account** |
-| 2026-04-27 | #2 | 1 | $600.00 | 90% | $540.00 | $1,665.00 |  |
-| 2026-05-13 | #1 | 3 | $700.00 | 90% | $630.00 | $2,295.00 | **SCALE → $7,500** |
-| 2026-06-10 | #2 | 2 | $650.00 | 90% | $585.00 | $2,880.00 | **FEE REFUND → new account** |
-| 2026-07-09 | #1 | 4 | $900.00 | 90% | $810.00 | $3,690.00 |  |
-| 2026-07-15 | #3 | 1 | $650.00 | 90% | $585.00 | $4,275.00 |  |
-| 2026-07-27 | #2 | 3 | $600.00 | 90% | $540.00 | $4,815.00 | **SCALE → $7,500** |
-| 2026-08-03 | #1 | 5 | $900.00 | 90% | $810.00 | $5,625.00 |  |
-| 2026-08-31 | #3 | 2 | $650.00 | 90% | $585.00 | $6,210.00 | **FEE REFUND → new account** |
-| 2026-09-02 | #2 | 4 | $1,050.00 | 90% | $945.00 | $7,155.00 |  |
-| 2026-09-03 | #1 | 6 | $900.00 | 90% | $810.00 | $7,965.00 | **SCALE → $10,000** |
+| 2026-06-11 | #1 | 1 | $643.36 | 90% | $579.03 | $579.03 |  |
 
 ## How the accounts multiply
 
 - **1 Feb** — buy Account #1 with your own money ($5,000 Classic).
-- **2026-04-06** — a fee refund lands → buy Account #2 and start trading the same signals.
-- **2026-06-10** — a fee refund lands → buy Account #3 and start trading the same signals.
-- **2026-08-31** — a fee refund lands → buy Account #4 and start trading the same signals.
 
 ## Interactive chart
 

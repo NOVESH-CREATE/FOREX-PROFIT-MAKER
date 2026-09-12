@@ -26,11 +26,11 @@ Run (from the repo root, with pandas / numpy / plotly installed):
 
     python3 funded_plan.py
 
-Expected final numbers (1% risk):
-    active accounts : 4
-    combined funded : $27,500
-    combined balance: $28,025
-    total paid out  : $7,965
+Expected final numbers (1% risk, corrected R-multiples):
+    active accounts : 1
+    combined funded : $5,000
+    combined balance: $5,104
+    total paid out  : $579
 
 Outputs (written to strategy_analysis/results/multiacct/):
     multiacct_equity.html    interactive 3-panel Plotly chart
@@ -285,6 +285,9 @@ def setup_key(row):
 
 
 def r_of(row):
+    """Actual R-multiple = pnl_pips / risk_pips (handles EOD partial closes)."""
+    if row.risk_pips:
+        return row.pnl_pips / row.risk_pips
     return row.rr_ratio if row.result == "WIN" else -1.0
 
 
@@ -453,9 +456,9 @@ def orchestrate(seq):
     print(f"  combined funded : ${today['level']:,.0f}")
     print(f"  combined balance: ${today['balance']:,.2f}")
     print(f"  total paid out  : ${total_paid:,.2f}")
-    if (today["accounts"] == 4 and today["level"] == 27500
-            and today["balance"] == 28025 and total_paid == 7965):
-        print("  -> MATCHES the verified plan numbers (4 / $27,500 / $28,025 / $7,965)")
+    if (today["accounts"] == 1 and today["level"] == 5000
+            and round(today["balance"]) == 5104 and round(total_paid) == 579):
+        print("  -> MATCHES the verified plan numbers (1 / $5,000 / $5,104 / $579)")
     return accounts, combined, payouts, opens, today, total_paid
 
 
