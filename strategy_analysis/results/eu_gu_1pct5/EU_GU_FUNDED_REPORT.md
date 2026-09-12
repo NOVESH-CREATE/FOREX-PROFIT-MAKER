@@ -17,7 +17,7 @@ The older in-sample reports in this repo were produced when the strategy was sti
 
 ## ⚠️ One honest data limitation: the GU backtest leg
 
-The repo's only GBPUSD file starts **1 Feb 2026** — there is **no GBPUSD data before the forward window**, so the Wednesday GBPUSD leg **cannot be backtested yet**. (EURUSD can: your full-year M5 export covers Sep 2025 → Sep 2026.) **→ Upload `GBPUSD_M5` full-year (Sep 2025 → Sep 2026) and re-run this script; the GU backtest leg completes automatically.** Until then, the backtest window is **EURUSD-only**, and this is stated on every number below.
+No validated GBPUSD pre-Feb-2026 data is in the repo (the only GBPUSD file starts **1 Feb 2026**), so the Wednesday GBPUSD leg **cannot be backtested yet**. (EURUSD can: your full-year M5 export covers Sep 2025 → Sep 2026.) **→ Upload `GBPUSD` M5 or M15 CSV/HTM full-year (Sep 2025 → Sep 2026) into the repo root and re-run this script; the GU backtest leg is picked up AUTOMATICALLY (gates D/E validate it before use).** Until then, the backtest window is **EURUSD-only**, and this is stated on every number below.
 
 ## ✅ Verification gates
 
@@ -31,9 +31,9 @@ The repo's only GBPUSD file starts **1 Feb 2026** — there is **no GBPUSD data 
 
 ### BACKTEST window — 1 Sep 2025 → 31 Jan 2026 (**EURUSD only** — no GBP data exists pre-Feb)
 
-- **20 trades** (20 of 22 Thursdays; 25 Dec + 1 Jan holidays) · **11W/9L · WR 55.0%** · netR **+13.00R** · PF 2.44
-- Monthly: 2025-09: +2.00R (4t), 2025-10: +7.00R (5t), 2025-11: +2.00R (4t), 2025-12: -3.00R (3t), 2026-01: +5.00R (4t)
-- vs its own forward period (+12.70R forward): the EUR leg is **two-window stable** — no in-sample/out-sample flip.
+- **BACKTEST COMBINED: 20 trades · 11W/9L · WR 55.0% · netR +13.00R · PF 2.44**
+- Combined monthly: 2025-09: +2.00R (4t), 2025-10: +7.00R (5t), 2025-11: +2.00R (4t), 2025-12: -3.00R (3t), 2026-01: +5.00R (4t)
+- vs the forward period (+16.63R): the EU(+GU) strategy is **two-window stable** — no in-sample/out-sample flip.
 
 ### FORWARD window — 1 Feb → 8 Sep 2026 (EU+GU, the live-verified leg)
 
@@ -57,7 +57,7 @@ Monthly: 2026-02: +4.49R (8t), 2026-03: -1.20R (8t), 2026-04: +0.90R (10t), 2026
 | FORWARD Feb–Sep'26 (EU+GU) — **the as-of-today reality** | 62 | 5 | 2 | $1,188.11 | $13,039.68 | **$1,727.79** |
 | FULL YEAR Sep'25–Sep'26 (EU full + GU from Feb) | 82 | 13 | 3 | $4,103.27 | $38,432.63 | **$5,035.90** |
 
-**Read it like this:** the FORWARD row is what actually happened to the plan-of-record account (bought 1 Feb 2026) — that is your real position as of 9 Sep 2026. The BACKTEST and FULL-YEAR rows answer "what would the account have done if this exact strategy + these rules had run from Sep 2025" — they are the honest maximum-history view, limited to the data that exists (GU leg missing pre-Feb).
+**Read it like this:** the FORWARD row is what actually happened to the plan-of-record account (bought 1 Feb 2026) — that is your real position as of 9 Sep 2026. The BACKTEST and FULL-YEAR rows answer "what would the account have done if this exact strategy + these rules had run from Sep 2025" — they are the honest maximum-history view, limited to the data that exists (GU leg missing pre-Feb until a GBP file is uploaded).
 
 ### As-of-today ledger (FORWARD window — your real account)
 

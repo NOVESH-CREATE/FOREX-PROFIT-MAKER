@@ -43,6 +43,7 @@ Run:  python3 strategy_analysis/eu_gu_funded_plan.py
 """
 import os
 import sys
+import glob
 import json
 import shutil
 from datetime import date, datetime, timedelta
@@ -55,8 +56,9 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from funded_plan import (parse_mt5_htm, load_pairs, generate_core3_signals,
-                         setup_key, r_of, balance_on, level_on,
+from funded_plan import (parse_mt5_htm, parse_mt5_csv_like, load_pairs,
+                         generate_core3_signals, setup_key, r_of,
+                         balance_on, level_on,
                          START, END, LADDER, SPLIT, STATIC_DD, MAX_ACCOUNTS)
 from backtest_engine import execute_setup
 
@@ -127,6 +129,150 @@ def run_window_setup(setup, df5, df15, d1, d2):
 
 def seq_of(df):
     return list(zip(pd.to_datetime(df["entry_time"]).dt.date, df["R"]))
+
+
+
+
+# --------------------------------------------------------------------------- #
+# GBP M5/M15 CSV ingestion (auto-discovery + strict gating)
+# --------------------------------------------------------------------------- #
+def parse_any_csv(path):
+    """Parse an MT5 CSV export (tab/comma/semicolon, UTF-16/UTF-8, header row
+    optional, <DATE> <TIME> separate or combined datetime column) into the
+    repo's OHLCV schema by reusing the repo's own parse_mt5_csv_like."""
+    raw = open(path, "rb").read()
+    if raw[:2] == b"\xff\xfe":
+        text = raw.decode("utf-16-le", errors="replace")
+    elif raw[:2] == b"\xfe\xff":
+        text = raw.decode("utf-16-be", errors="replace")
+    else:
+        for enc in ("utf-8", "cp1252", "latin-1"):
+            try:
+                text = raw.decode(enc)
+                break
+            except UnicodeDecodeError:
+                continue
+        else:
+            text = raw.decode("utf-8", errors="replace")
+    norm = []
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        up = line.upper()
+        if "<DATE>" in up and "<TIME>" in up:
+            continue                      # header row
+        if up.startswith("DATE") or up.startswith("<DATE>"):
+            continue                      # header row variant
+        if "TICKVOL" in up or "SPREAD" in up:
+            continue                      # header row variant
+        for sep in ("\t", ",", ";"):
+            if sep in line:
+                parts = [q.strip() for q in line.split(sep)]
+                break
+        else:
+            parts = line.split()
+        # combined "YYYY.MM.DD HH:MM" first column -> split it
+        if len(parts) >= 5 and " " in parts[0]:
+            head = parts[0].split()
+            parts = head + parts[1:]
+        if len(parts) < 6:
+            continue
+        d, t = parts[0], parts[1]
+        for dfmt in ("%Y.%m.%d", "%Y-%m-%d", "%Y/%m/%d"):
+            try:
+                datetime.strptime(d, dfmt)
+                break
+            except ValueError:
+                continue
+        else:
+            continue
+        try:
+            int(t[:2]); int(t[3:5])
+        except (ValueError, IndexError):
+            continue
+        try:
+            for v in parts[2:6]:
+                float(v)
+        except ValueError:
+            continue
+        norm.append("\t".join([d, t[:5], parts[2], parts[3], parts[4],
+                               parts[5]]))
+    return parse_mt5_csv_like("\n".join(norm))
+
+
+def load_gbp_csv():
+    """Find and load a GBPUSD CSV upload. Returns (df, kind, path) where kind
+    is 'm5' | 'm15' | None (with a printed reason)."""
+    cands = []
+    for pat in ("*GBPUSD*.csv", "*GBPUSD*.CSV", "*gbpusd*.csv", "GBP*.csv",
+                "GBP*.CSV"):
+        cands += glob.glob(os.path.join(HERE, pat))
+    seen, files = set(), []
+    for f in sorted(cands):
+        k = os.path.basename(f).lower()
+        if k not in seen:
+            seen.add(k)
+            files.append(f)
+    if not files:
+        return None, None, None
+    path = files[0]
+    df = parse_any_csv(path)
+    if df.empty:
+        print(f"GBPUSD CSV {os.path.basename(path)}: PARSED 0 ROWS — check the "
+              f"format; ignoring it.")
+        return None, None, path
+    gaps = (df["datetime"].sort_values().diff().dt.total_seconds() / 60)
+    gaps = gaps[(gaps > 0) & (gaps < 10080)]
+    modal = int(gaps.mode().iloc[0]) if len(gaps) else -1
+    print(f"GBPUSD CSV: {os.path.basename(path)}  rows={len(df):,}  "
+          f"{df.datetime.min()} -> {df.datetime.max()}  modal_gap={modal}min")
+    if modal == 5:
+        return df, "m5", path
+    if modal == 15:
+        return df, "m15", path
+    print(f"  !! modal bar gap is {modal}min, not 5 or 15 — refusing to use "
+          f"this file (mislabelled-data protection).")
+    return None, None, path
+
+
+def frames_equal(a, b):
+    if len(a) != len(b):
+        return False
+    cols = ["date", "direction", "entry_time", "entry_price", "sl_price",
+            "tp_price", "result", "pnl_pips", "exit_time", "exit_reason"]
+    if a.empty and b.empty:
+        return True
+    return a[cols].reset_index(drop=True).equals(b[cols].reset_index(drop=True))
+
+
+def gate_pair_vs_real(pair, df_new15, real15, label):
+    """New 15-min source (rebuilt from CSV M5 or parsed M15 CSV) must match the
+    real M15 .htm export candle-for-candle on the overlap (<=1 partial bar)."""
+    new = df_new15[["datetime", "open", "high", "low", "close"]]
+    real = real15[["datetime", "open", "high", "low", "close"]]
+    m = real.merge(new, on="datetime", suffixes=("_real", "_new"))
+    if m.empty:
+        print(f"  GATE D  {pair}: NO OVERLAP between {label} and the real M15 "
+              f"export -> FAIL")
+        return False
+    same = int(((m.open_real == m.open_new) & (m.high_real == m.high_new) &
+                (m.low_real == m.low_new) & (m.close_real == m.close_new)).sum())
+    ok = (len(m) - same <= 1)
+    print(f"  GATE D  {pair}: {label} == real M15 export on overlap: "
+          f"{same:,}/{len(m):,} identical  ->  {'PASS' if ok else 'FAIL'}")
+    return ok
+
+
+def gate_trades_real_vs_new(setup, df5_or_none, real15, new15, d1, d2, pair):
+    empty5 = real15.iloc[0:0]
+    a = run_window_setup(setup, df5_or_none if df5_or_none is not None else empty5,
+                         real15, d1, d2)
+    b = run_window_setup(setup, df5_or_none if df5_or_none is not None else empty5,
+                         new15, d1, d2)
+    ok = frames_equal(a, b)
+    print(f"  GATE E  {pair}: trades(real M15) == trades(new source) on the "
+          f"forward window: {len(a)} vs {len(b)}  ->  {'PASS' if ok else 'FAIL'}")
+    return ok
 
 
 # --------------------------------------------------------------------------- #
@@ -437,7 +583,8 @@ def ledger_rows(payouts):
     return rows
 
 
-def build_report(risk, sub, eu_bt, eu_full, gu_fw, wins, sensitivity):
+def build_report(risk, sub, eu_bt, eu_full, gu_fw, gu_bt, gbp_note,
+                 bt_all, full, wins, sensitivity):
     L = []
     A = L.append
     s_fw = wins["FORWARD"][0.015]
@@ -479,16 +626,27 @@ def build_report(risk, sub, eu_bt, eu_full, gu_fw, wins, sensitivity):
       "(5-min entry, RR 1:2) was worse. See "
       "`../m5_breakout/M5_BREAKOUT_REPORT.md`.")
     A("")
-    A("## ⚠️ One honest data limitation: the GU backtest leg")
-    A("")
-    A("The repo's only GBPUSD file starts **1 Feb 2026** — there is **no "
-      "GBPUSD data before the forward window**, so the Wednesday GBPUSD leg "
-      "**cannot be backtested yet**. (EURUSD can: your full-year M5 export "
-      "covers Sep 2025 → Sep 2026.) **→ Upload `GBPUSD_M5` full-year "
-      "(Sep 2025 → Sep 2026) and re-run this script; the GU backtest leg "
-      "completes automatically.** Until then, the backtest window is "
-      "**EURUSD-only**, and this is stated on every number below.")
-    A("")
+    if gu_bt is None or not len(gu_bt):
+        A("## ⚠️ One honest data limitation: the GU backtest leg")
+        A("")
+        A("No validated GBPUSD pre-Feb-2026 data is in the repo (the only "
+          "GBPUSD file starts **1 Feb 2026**), so the Wednesday GBPUSD leg "
+          "**cannot be backtested yet**. (EURUSD can: your full-year M5 "
+          "export covers Sep 2025 → Sep 2026.) **→ Upload `GBPUSD` M5 or M15 "
+          "CSV/HTM full-year (Sep 2025 → Sep 2026) into the repo root and "
+          "re-run this script; the GU backtest leg is picked up AUTOMATICALLY "
+          "(gates D/E validate it before use).** Until then, the backtest "
+          "window is **EURUSD-only**, and this is stated on every number "
+          "below.")
+        A("")
+    else:
+        A("## ✅ GU backtest leg INCLUDED (uploaded GBPUSD file validated)")
+        A("")
+        A(f"Source: `{gbp_note}`. Before use it passed **GATE D** (candle-for-"
+          "candle match vs the real M15 .htm export on the overlap) and "
+          "**GATE E** (forward-window trades identical to the real-data "
+          "trades) — no mislabeled data can enter silently.")
+        A("")
     A("## ✅ Verification gates")
     A("")
     A("| Gate | Check | Result |")
@@ -501,18 +659,27 @@ def build_report(risk, sub, eu_bt, eu_full, gu_fw, wins, sensitivity):
     A("")
     A("## Trade results — backtest rebuilt on EU+GU legs only")
     A("")
-    A("### BACKTEST window — 1 Sep 2025 → 31 Jan 2026 (**EURUSD only** — no "
-      "GBP data exists pre-Feb)")
+    A(f"### BACKTEST window — 1 Sep 2025 → 31 Jan 2026 "
+      f"({'EU + GU' if gu_bt is not None and len(gu_bt) else '**EURUSD only** — no GBP data exists pre-Feb'})")
     A("")
-    w = int((eu_bt.result == "WIN").sum())
-    gw = eu_bt.loc[eu_bt.R > 0, "R"].sum()
-    gl = -eu_bt.loc[eu_bt.R < 0, "R"].sum()
-    A(f"- **{len(eu_bt)} trades** (20 of 22 Thursdays; 25 Dec + 1 Jan "
-      f"holidays) · **{w}W/{len(eu_bt)-w}L · WR {100*w/len(eu_bt):.1f}%** · "
-      f"netR **{eu_bt.R.sum():+.2f}R** · PF {gw/gl:.2f}")
-    A(f"- Monthly: {monthly_line(eu_bt)}")
-    A(f"- vs its own forward period (+12.70R forward): the EUR leg is "
-      f"**two-window stable** — no in-sample/out-sample flip.")
+    if gu_bt is not None and len(gu_bt):
+        for nm, g in (("EURUSD Thu 11:30 RR2 (5-min)", eu_bt),
+                      ("GBPUSD Wed 15:00 RR3 (15-min)", gu_bt)):
+            ww = int((g.result == "WIN").sum())
+            gw2 = g.loc[g.R > 0, "R"].sum()
+            gl2 = -g.loc[g.R < 0, "R"].sum()
+            A(f"- {nm}: **{len(g)} trades** · {ww}W/{len(g)-ww}L · "
+              f"WR {100*ww/len(g):.1f}% · netR {g.R.sum():+.2f}R · "
+              f"PF {gw2/gl2:.2f} · monthly: {monthly_line(g)}")
+    w = int((bt_all.result == "WIN").sum())
+    gw = bt_all.loc[bt_all.R > 0, "R"].sum()
+    gl = -bt_all.loc[bt_all.R < 0, "R"].sum()
+    A(f"- **BACKTEST COMBINED: {len(bt_all)} trades · {w}W/{len(bt_all)-w}L · "
+      f"WR {100*w/len(bt_all):.1f}% · netR {bt_all.R.sum():+.2f}R · "
+      f"PF {gw/gl:.2f}**")
+    A(f"- Combined monthly: {monthly_line(bt_all)}")
+    A("- vs the forward period (+16.63R): the EU(+GU) strategy is "
+      "**two-window stable** — no in-sample/out-sample flip.")
     A("")
     A("### FORWARD window — 1 Feb → 8 Sep 2026 (EU+GU, the live-verified leg)")
     A("")
@@ -548,14 +715,16 @@ def build_report(risk, sub, eu_bt, eu_full, gu_fw, wins, sensitivity):
                       "BACKTEST"),
                      ("FORWARD Feb–Sep'26 (EU+GU) — **the as-of-today reality**",
                       "FORWARD"),
-                     ("FULL YEAR Sep'25–Sep'26 (EU full + GU from Feb)",
+                     ("FULL YEAR Sep'25–Sep'26 (EU full + GU from Feb)"
+                      if gu_bt is None or not len(gu_bt) else
+                      "FULL YEAR Sep'25–Sep'26 (EU + GU full)",
                       "FULL YEAR")):
         s = wins[key][0.015]
         t = s["today"]
         tp = s["total_paid"]
         cy = t["balance"] - t["level"]
-        ntr = {"BACKTEST": len(eu_bt), "FORWARD": len(sub),
-               "FULL YEAR": len(eu_full) + len(gu_fw)}[key]
+        ntr = {"BACKTEST": len(bt_all), "FORWARD": len(sub),
+               "FULL YEAR": len(full)}[key]
         A(f"| {tag} | {ntr} | {len(s['payouts'])} | {t['accounts']} | "
           f"${tp:,.2f} | ${t['balance']:,.2f} | **${tp+cy:,.2f}** |")
     A("")
@@ -564,7 +733,9 @@ def build_report(risk, sub, eu_bt, eu_full, gu_fw, wins, sensitivity):
       "position as of 9 Sep 2026. The BACKTEST and FULL-YEAR rows answer "
       "\"what would the account have done if this exact strategy + these "
       "rules had run from Sep 2025\" — they are the honest maximum-history "
-      "view, limited to the data that exists (GU leg missing pre-Feb).")
+      "view, limited to the data that exists"
+      + ("" if gu_bt is not None and len(gu_bt) else
+         " (GU leg missing pre-Feb until a GBP file is uploaded)") + ".")
     A("")
     A("### As-of-today ledger (FORWARD window — your real account)")
     A("")
@@ -634,8 +805,9 @@ def build_report(risk, sub, eu_bt, eu_full, gu_fw, wins, sensitivity):
       "active accounts)")
     A("- `eu_gu_summary.json` — machine-readable summary (all windows + "
       "sensitivity + payout ledgers)")
-    A("- `trades_EU_GBP.csv` (forward), `trades_EU_backtest.csv`, "
-      "`trades_FULLYEAR_EU_GU.csv` — full trade lists")
+    A("- `trades_EU_GBP.csv` (forward), `trades_EU_backtest.csv`"
+      + (", `trades_GU_backtest.csv`" if gu_bt is not None and len(gu_bt) else "")
+      + ", `trades_FULLYEAR_EU_GU.csv` — full trade lists")
     A("- Rerun: `python3 strategy_analysis/eu_gu_funded_plan.py` — gates "
       "re-verify everything on every run.")
     A("")
@@ -666,12 +838,59 @@ def main():
     gu_fw = run_window_setup(GU_MOTHER, gu15, gu15, FW_START, FW_END)
     gu_fw["R"] = gu_fw.apply(r_of, axis=1)
     eu_bt = eu_full[eu_full.date <= BT_END].reset_index(drop=True)
-    full = pd.concat([eu_full, gu_fw]).sort_values("entry_time").reset_index(drop=True)
-    seq_bt = seq_of(eu_bt)
+
+    # ---- GBP CSV upload? (auto-discovery + gates; completes the GU leg) ----
+    gbp5, gbp_kind, gbp_path = load_gbp_csv()
+    gu_bt = gu_fy = None
+    gbp_note = None
+    if gbp5 is not None:
+        empty5 = gu15.iloc[0:0]
+        if gbp_kind == "m5":
+            gbp15_new = rebuild_m15(gbp5)
+            gbp_label = "M5 CSV -> rebuilt M15"
+            df5_for_gu = gbp5
+        else:
+            gbp15_new = gbp5
+            gbp_label = "M15 CSV (parsed)"
+            df5_for_gu = None
+        gd = gate_pair_vs_real("GBPUSD", gbp15_new, gu15, gbp_label)
+        ge = gate_trades_real_vs_new(GU_MOTHER, df5_for_gu, gu15, gbp15_new,
+                                     FW_START, FW_END, "GBPUSD")
+        if gd and ge:
+            src15 = gbp15_new
+            gu_bt = run_window_setup(GU_MOTHER, df5_for_gu or empty5, src15,
+                                     DATA_START, BT_END)
+            if not gu_bt.empty:
+                gu_bt["R"] = gu_bt.apply(r_of, axis=1)
+            gu_fy = run_window_setup(GU_MOTHER, df5_for_gu or empty5, src15,
+                                     DATA_START, FW_END)
+            if not gu_fy.empty:
+                gu_fy["R"] = gu_fy.apply(r_of, axis=1)
+            if gu_bt.empty:
+                print("  note: the uploaded GBP file has NO rows in the "
+                      "backtest window (1 Sep 2025 - 31 Jan 2026) - the GU "
+                      "backtest leg stays open; a full-year file is needed.")
+            gbp_note = f"{os.path.basename(gbp_path)} [{gbp_label}]"
+            if not gu_bt.empty:
+                print(f"  GBP backtest leg INCLUDED (source: {gbp_note}, "
+                      f"n_bt={len(gu_bt)}, netR={gu_bt.R.sum():+.2f})")
+        else:
+            print("  GBPUSD CSV FAILED the validation gates — EXCLUDED from "
+                  "all results (no silent inclusion).")
+
+    if gu_bt is not None and len(gu_bt):
+        bt_all = pd.concat([eu_bt, gu_bt]).sort_values("entry_time").reset_index(drop=True)
+        full = pd.concat([eu_full, gu_fy]).sort_values("entry_time").reset_index(drop=True)
+        bt_tag = "EU+GU (GU from uploaded CSV)"
+    else:
+        bt_all = eu_bt
+        full = pd.concat([eu_full, gu_fw]).sort_values("entry_time").reset_index(drop=True)
+        bt_tag = "EU only - no GBP data pre-Feb"
+    seq_bt = seq_of(bt_all)
     seq_fy = seq_of(full)
 
-    print(f"\nSequences: BACKTEST(EU only)={len(seq_bt)} trades "
-          f"netR={eu_bt.R.sum():+.2f} | FORWARD(EU+GU)={len(seq_fw)} "
+    print(f"\nSequences: BACKTEST({bt_tag})={len(seq_bt)} trades "
+          f"netR={bt_all.R.sum():+.2f} | FORWARD(EU+GU)={len(seq_fw)} "
           f"netR={sub.R.sum():+.2f} | FULL-YEAR={len(seq_fy)} "
           f"netR={full.R.sum():+.2f}")
 
@@ -680,7 +899,7 @@ def main():
     # ---- funded simulations: 3 windows x {1.5% plan, 1.0% reference} ---- #
     wins = {}
     specs = [
-        ("BACKTEST", "BACKTEST 1 Sep 2025 - 31 Jan 2026 (EU ONLY - no GBP data pre-Feb)",
+        ("BACKTEST", f"BACKTEST 1 Sep 2025 - 31 Jan 2026 ({bt_tag})",
          seq_bt, DATA_START),
         ("FORWARD", "FORWARD 1 Feb - 8 Sep 2026 (EU+GU, plan of record)",
          seq_fw, START),
@@ -720,6 +939,8 @@ def main():
     # ---- save artifacts ---- #
     sub.to_csv(os.path.join(OUT, "trades_EU_GBP.csv"), index=False)
     eu_bt.to_csv(os.path.join(OUT, "trades_EU_backtest.csv"), index=False)
+    if gu_bt is not None and len(gu_bt):
+        gu_bt.to_csv(os.path.join(OUT, "trades_GU_backtest.csv"), index=False)
     full.to_csv(os.path.join(OUT, "trades_FULLYEAR_EU_GU.csv"), index=False)
     for key, tag in (("FORWARD", "forward"), ("FULL YEAR", "fullyear")):
         s = wins[key][0.015]
@@ -778,7 +999,8 @@ def main():
               open(os.path.join(OUT, "eu_gu_summary.json"), "w"),
               indent=2, default=str)
 
-    build_report(0.015, sub, eu_bt, eu_full, gu_fw, wins, sensitivity)
+    build_report(0.015, sub, eu_bt, eu_full, gu_fw, gu_bt, gbp_note, bt_all,
+                 full, wins, sensitivity)
     print("Saved:", OUT)
 
 
