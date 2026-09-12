@@ -42,6 +42,7 @@ EU_GU_RISK_REPORT.md numbers — +17.50% / maxDD 3.77% at 1.0% risk and
 Run:  python3 strategy_analysis/eu_gu_funded_plan.py
 """
 import os
+import re
 import sys
 import glob
 import json
@@ -200,31 +201,45 @@ def parse_any_csv(path):
     return parse_mt5_csv_like("\n".join(norm))
 
 
-def load_gbp_csv():
-    """Find and load a GBPUSD CSV upload. Returns (df, kind, path) where kind
-    is 'm5' | 'm15' | None (with a printed reason)."""
+GBP_REF_HTM = "GBPUSD_M15_202602012200_202609080000.htm"   # fixed reference
+
+
+def load_gbp_upload():
+    """Find and load ANY GBPUSD upload (CSV or HTM/HTML, M5 or M15) that is
+    NOT the known forward-window reference export. Returns (df, kind, path)
+    where kind is 'm5' | 'm15' | None (with a printed reason)."""
     cands = []
-    for pat in ("*GBPUSD*.csv", "*GBPUSD*.CSV", "*gbpusd*.csv", "GBP*.csv",
-                "GBP*.CSV"):
+    for pat in ("*GBPUSD*.csv", "*GBPUSD*.CSV", "GBP*.csv", "GBP*.CSV",
+                "*GBPUSD*.htm", "*GBPUSD*.html", "*GBPUSD*.HTM",
+                "*GBPUSD*.HTML", "GBP*.htm", "GBP*.HTML"):
         cands += glob.glob(os.path.join(HERE, pat))
     seen, files = set(), []
     for f in sorted(cands):
         k = os.path.basename(f).lower()
-        if k not in seen:
-            seen.add(k)
-            files.append(f)
+        if k in seen or os.path.basename(f) == GBP_REF_HTM:
+            continue
+        seen.add(k)
+        files.append(f)
     if not files:
         return None, None, None
+    # latest end-stamp in the filename wins
+    def stamp(f):
+        m = re.search(r"_(\d{12})\.", os.path.basename(f) + ".")
+        return m.group(1) if m else "000000000000"
+    files.sort(key=stamp, reverse=True)
     path = files[0]
-    df = parse_any_csv(path)
+    if path.lower().endswith((".htm", ".html")):
+        df = parse_mt5_htm(path)
+    else:
+        df = parse_any_csv(path)
     if df.empty:
-        print(f"GBPUSD CSV {os.path.basename(path)}: PARSED 0 ROWS — check the "
-              f"format; ignoring it.")
+        print(f"GBPUSD upload {os.path.basename(path)}: PARSED 0 ROWS — "
+              f"check the format; ignoring it.")
         return None, None, path
     gaps = (df["datetime"].sort_values().diff().dt.total_seconds() / 60)
     gaps = gaps[(gaps > 0) & (gaps < 10080)]
     modal = int(gaps.mode().iloc[0]) if len(gaps) else -1
-    print(f"GBPUSD CSV: {os.path.basename(path)}  rows={len(df):,}  "
+    print(f"GBPUSD upload: {os.path.basename(path)}  rows={len(df):,}  "
           f"{df.datetime.min()} -> {df.datetime.max()}  modal_gap={modal}min")
     if modal == 5:
         return df, "m5", path
@@ -839,23 +854,26 @@ def main():
     gu_fw["R"] = gu_fw.apply(r_of, axis=1)
     eu_bt = eu_full[eu_full.date <= BT_END].reset_index(drop=True)
 
-    # ---- GBP CSV upload? (auto-discovery + gates; completes the GU leg) ----
-    gbp5, gbp_kind, gbp_path = load_gbp_csv()
+    # ---- GBP upload? (auto-discovery of CSV *and* HTM; completes the GU leg)
+    gbp5, gbp_kind, gbp_path = load_gbp_upload()
     gu_bt = gu_fy = None
     gbp_note = None
     if gbp5 is not None:
-        empty5 = gu15.iloc[0:0]
+        gu15_ref = parse_mt5_htm(os.path.join(HERE, GBP_REF_HTM))  # fixed ref
+        empty5 = gu15_ref.iloc[0:0]
         if gbp_kind == "m5":
             gbp15_new = rebuild_m15(gbp5)
-            gbp_label = "M5 CSV -> rebuilt M15"
+            gbp_label = ("M5 CSV -> rebuilt M15" if gbp_path.lower().endswith(
+                             (".csv")) else "M5 HTM -> rebuilt M15")
             df5_for_gu = gbp5
         else:
             gbp15_new = gbp5
-            gbp_label = "M15 CSV (parsed)"
+            gbp_label = "M15 CSV (parsed)" if gbp_path.lower().endswith(
+                             (".csv")) else "M15 HTM (parsed)"
             df5_for_gu = None
-        gd = gate_pair_vs_real("GBPUSD", gbp15_new, gu15, gbp_label)
-        ge = gate_trades_real_vs_new(GU_MOTHER, df5_for_gu, gu15, gbp15_new,
-                                     FW_START, FW_END, "GBPUSD")
+        gd = gate_pair_vs_real("GBPUSD", gbp15_new, gu15_ref, gbp_label)
+        ge = gate_trades_real_vs_new(GU_MOTHER, df5_for_gu, gu15_ref,
+                                     gbp15_new, FW_START, FW_END, "GBPUSD")
         if gd and ge:
             src15 = gbp15_new
             gu_bt = run_window_setup(GU_MOTHER, df5_for_gu or empty5, src15,
