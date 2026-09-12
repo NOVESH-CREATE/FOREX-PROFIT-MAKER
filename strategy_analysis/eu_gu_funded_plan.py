@@ -400,6 +400,9 @@ def simulate_account_fyfx(seq, start, end, risk,
             profit = 0.0
             days = 0
             soft = 0
+            # the curve must reflect END-OF-DAY state (post-reset, post-scale)
+            if curve and curve[-1][0] == d:
+                curve[-1] = (d, balance, level)
     return {"events": events, "curve": curve, "breached": breached,
             "n_trades": len(trades), "soft_breaches": soft,
             "worst_close_ratio": worst_close}
@@ -726,7 +729,9 @@ def build_report(risk, sub, eu_bt, eu_full, gu_fw, gu_bt, gbp_note,
     A("| Window | Trades | Payouts | Accounts | Paid out | Combined balance | "
       "TOTAL PROFIT |")
     A("|---|---|---|---|---|---|---|")
-    for tag, key in (("BACKTEST Sep'25–Jan'26 (EU only — GU data missing)",
+    for tag, key in (("BACKTEST Sep'25–Jan'26 (EU + GU)"
+                      if gu_bt is not None and len(gu_bt) else
+                      "BACKTEST Sep'25–Jan'26 (EU only — GU data missing)",
                       "BACKTEST"),
                      ("FORWARD Feb–Sep'26 (EU+GU) — **the as-of-today reality**",
                       "FORWARD"),

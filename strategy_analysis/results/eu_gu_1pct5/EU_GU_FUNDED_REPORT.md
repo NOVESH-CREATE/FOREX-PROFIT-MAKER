@@ -15,9 +15,9 @@ The older in-sample reports in this repo were produced when the strategy was sti
 
 ~~Monday USDCAD~~ — **dropped**: 32 forward Mondays at the current settings made netR −1.68R (PF 0.88); every tested variant (5-min entry, RR 1:2) was worse. See `../m5_breakout/M5_BREAKOUT_REPORT.md`.
 
-## ⚠️ One honest data limitation: the GU backtest leg
+## ✅ GU backtest leg INCLUDED (uploaded GBPUSD file validated)
 
-No validated GBPUSD pre-Feb-2026 data is in the repo (the only GBPUSD file starts **1 Feb 2026**), so the Wednesday GBPUSD leg **cannot be backtested yet**. (EURUSD can: your full-year M5 export covers Sep 2025 → Sep 2026.) **→ Upload `GBPUSD` M5 or M15 CSV/HTM full-year (Sep 2025 → Sep 2026) into the repo root and re-run this script; the GU backtest leg is picked up AUTOMATICALLY (gates D/E validate it before use).** Until then, the backtest window is **EURUSD-only**, and this is stated on every number below.
+Source: `GBPUSD_M15_202509011745_202609112045.csv [M15 CSV (parsed)]`. Before use it passed **GATE D** (candle-for-candle match vs the real M15 .htm export on the overlap) and **GATE E** (forward-window trades identical to the real-data trades) — no mislabeled data can enter silently.
 
 ## ✅ Verification gates
 
@@ -29,10 +29,12 @@ No validated GBPUSD pre-Feb-2026 data is in the repo (the only GBPUSD file start
 
 ## Trade results — backtest rebuilt on EU+GU legs only
 
-### BACKTEST window — 1 Sep 2025 → 31 Jan 2026 (**EURUSD only** — no GBP data exists pre-Feb)
+### BACKTEST window — 1 Sep 2025 → 31 Jan 2026 (EU + GU)
 
-- **BACKTEST COMBINED: 20 trades · 11W/9L · WR 55.0% · netR +13.00R · PF 2.44**
-- Combined monthly: 2025-09: +2.00R (4t), 2025-10: +7.00R (5t), 2025-11: +2.00R (4t), 2025-12: -3.00R (3t), 2026-01: +5.00R (4t)
+- EURUSD Thu 11:30 RR2 (5-min): **20 trades** · 11W/9L · WR 55.0% · netR +13.00R · PF 2.44 · monthly: 2025-09: +2.00R (4t), 2025-10: +7.00R (5t), 2025-11: +2.00R (4t), 2025-12: -3.00R (3t), 2026-01: +5.00R (4t)
+- GBPUSD Wed 15:00 RR3 (15-min): **22 trades** · 14W/8L · WR 63.6% · netR +7.66R · PF 2.91 · monthly: 2025-09: +3.42R (4t), 2025-10: -1.33R (5t), 2025-11: +2.18R (4t), 2025-12: +0.58R (5t), 2026-01: +2.81R (4t)
+- **BACKTEST COMBINED: 42 trades · 25W/17L · WR 59.5% · netR +20.66R · PF 2.59**
+- Combined monthly: 2025-09: +5.42R (8t), 2025-10: +5.67R (10t), 2025-11: +4.18R (8t), 2025-12: -2.42R (8t), 2026-01: +7.81R (8t)
 - vs the forward period (+16.63R): the EU(+GU) strategy is **two-window stable** — no in-sample/out-sample flip.
 
 ### FORWARD window — 1 Feb → 8 Sep 2026 (EU+GU, the live-verified leg)
@@ -53,11 +55,11 @@ Monthly: 2026-02: +4.49R (8t), 2026-03: -1.20R (8t), 2026-04: +0.90R (10t), 2026
 
 | Window | Trades | Payouts | Accounts | Paid out | Combined balance | TOTAL PROFIT |
 |---|---|---|---|---|---|---|
-| BACKTEST Sep'25–Jan'26 (EU only — GU data missing) | 20 | 3 | 2 | $877.50 | $10,150.00 | **$1,027.50** |
+| BACKTEST Sep'25–Jan'26 (EU + GU) | 42 | 6 | 2 | $1,806.59 | $13,020.82 | **$2,327.41** |
 | FORWARD Feb–Sep'26 (EU+GU) — **the as-of-today reality** | 62 | 5 | 2 | $1,188.11 | $13,039.68 | **$1,727.79** |
-| FULL YEAR Sep'25–Sep'26 (EU full + GU from Feb) | 82 | 13 | 3 | $4,103.27 | $38,432.63 | **$5,035.90** |
+| FULL YEAR Sep'25–Sep'26 (EU + GU full) | 104 | 24 | 4 | $9,411.08 | $82,650.00 | **$9,561.08** |
 
-**Read it like this:** the FORWARD row is what actually happened to the plan-of-record account (bought 1 Feb 2026) — that is your real position as of 9 Sep 2026. The BACKTEST and FULL-YEAR rows answer "what would the account have done if this exact strategy + these rules had run from Sep 2025" — they are the honest maximum-history view, limited to the data that exists (GU leg missing pre-Feb until a GBP file is uploaded).
+**Read it like this:** the FORWARD row is what actually happened to the plan-of-record account (bought 1 Feb 2026) — that is your real position as of 9 Sep 2026. The BACKTEST and FULL-YEAR rows answer "what would the account have done if this exact strategy + these rules had run from Sep 2025" — they are the honest maximum-history view, limited to the data that exists.
 
 ### As-of-today ledger (FORWARD window — your real account)
 
@@ -73,19 +75,30 @@ Monthly: 2026-02: +4.49R (8t), 2026-03: -1.20R (8t), 2026-04: +0.90R (10t), 2026
 
 | Date | Account | Payout # | Gross | You receive (90%) | Cumulative | Note |
 |---|---|---|---|---|---|---|
-| 2025-10-23 | #1 | 1 | $525.00 | **$472.50** | $472.50 | — |
-| 2025-12-04 | #1 | 2 | $225.00 | **$202.50** | $675.00 | — |
-| 2026-01-29 | #1 | 3 | $225.00 | **$202.50** | $877.50 | **FEE REFUND → new $5K account**, **SCALE → $7,500** |
-| 2026-02-19 | #1 | 4 | $471.57 | **$424.42** | $1,301.92 | — |
-| 2026-03-12 | #1 | 5 | $216.65 | **$194.99** | $1,496.91 | — |
-| 2026-05-21 | #2 | 1 | $434.52 | **$391.06** | $1,887.97 | — |
-| 2026-05-28 | #1 | 6 | $188.55 | **$169.69** | $2,057.66 | **SCALE → $10,000** |
-| 2026-06-11 | #2 | 2 | $429.91 | **$386.92** | $2,444.58 | — |
-| 2026-06-18 | #1 | 7 | $409.82 | **$368.84** | $2,813.42 | — |
-| 2026-07-15 | #1 | 8 | $434.09 | **$390.68** | $3,204.10 | — |
-| 2026-08-06 | #1 | 9 | $273.52 | **$246.17** | $3,450.27 | **SCALE → $25,000** |
-| 2026-08-06 | #2 | 3 | $203.81 | **$183.42** | $3,633.69 | **FEE REFUND → new $5K account**, **SCALE → $7,500** |
-| 2026-09-03 | #1 | 10 | $521.75 | **$469.58** | $4,103.27 | — |
+| 2025-09-25 | #1 | 1 | $406.18 | **$365.56** | $365.56 | — |
+| 2025-10-16 | #1 | 2 | $275.43 | **$247.89** | $613.45 | — |
+| 2025-11-06 | #1 | 3 | $315.62 | **$284.06** | $897.51 | **FEE REFUND → new $5K account**, **SCALE → $7,500** |
+| 2025-11-27 | #1 | 4 | $221.93 | **$199.74** | $1,097.25 | — |
+| 2026-01-14 | #2 | 1 | $404.03 | **$363.63** | $1,460.88 | — |
+| 2026-01-15 | #1 | 5 | $384.12 | **$345.71** | $1,806.59 | — |
+| 2026-02-04 | #2 | 2 | $383.95 | **$345.56** | $2,152.15 | — |
+| 2026-02-05 | #1 | 6 | $238.43 | **$214.59** | $2,366.74 | **SCALE → $10,000** |
+| 2026-02-25 | #2 | 3 | $326.42 | **$293.78** | $2,660.52 | **FEE REFUND → new $5K account**, **SCALE → $7,500** |
+| 2026-02-26 | #1 | 7 | $652.84 | **$587.56** | $3,248.08 | — |
+| 2026-04-08 | #1 | 8 | $184.08 | **$165.67** | $3,413.75 | — |
+| 2026-05-28 | #1 | 9 | $310.86 | **$279.77** | $3,693.52 | **SCALE → $25,000** |
+| 2026-05-28 | #2 | 4 | $258.70 | **$232.83** | $3,926.35 | — |
+| 2026-06-10 | #3 | 1 | $475.04 | **$427.54** | $4,353.89 | — |
+| 2026-06-18 | #1 | 10 | $1,024.55 | **$922.10** | $5,275.99 | — |
+| 2026-06-18 | #2 | 5 | $307.37 | **$276.63** | $5,552.62 | — |
+| 2026-07-15 | #1 | 11 | $1,085.23 | **$976.71** | $6,529.33 | — |
+| 2026-07-15 | #2 | 6 | $325.57 | **$293.01** | $6,822.34 | **SCALE → $10,000** |
+| 2026-07-15 | #3 | 2 | $217.05 | **$195.34** | $7,017.68 | — |
+| 2026-08-06 | #1 | 12 | $683.79 | **$615.42** | $7,633.10 | **SCALE → $60,000** |
+| 2026-08-06 | #2 | 7 | $273.52 | **$246.17** | $7,879.27 | — |
+| 2026-09-03 | #1 | 13 | $1,252.20 | **$1,126.98** | $9,006.25 | — |
+| 2026-09-03 | #2 | 8 | $208.70 | **$187.83** | $9,194.08 | — |
+| 2026-09-03 | #3 | 3 | $241.11 | **$217.00** | $9,411.08 | **FEE REFUND → new $5K account**, **SCALE → $7,500** |
 
 ### Rule sensitivity (FORWARD window, 1.5% risk)
 
@@ -108,8 +121,8 @@ Monthly: 2026-02: +4.49R (8t), 2026-03: -1.20R (8t), 2026-04: +0.90R (10t), 2026
 | Metric | 1.0% risk | **1.5% risk (PLAN)** |
 |---|---|---|
 | Total paid out by 9 Sep | $748.55 | **$1,188.11** |
-| Combined balance | $10,310.37 | **$13,039.68** |
-| Combined funded | $10,000 | **$12,500** |
+| Combined balance | $12,600.00 | **$13,039.68** |
+| Combined funded | $12,500 | **$12,500** |
 | Pure-compound return (no payout resets) | +17.50% | **+26.90%** |
 | Pure-compound max drawdown | 3.77% | **5.62%** (vs 8% breach: safe) |
 | Worst-case consecutive-loss breach? | no | **no** (needs 5.3 straight full losses; worst seen = 3) |
@@ -124,6 +137,6 @@ Monthly: 2026-02: +4.49R (8t), 2026-03: -1.20R (8t), 2026-04: +0.90R (10t), 2026
 
 - `eu_gu_funded_equity.html` / `index.html` — interactive 3-panel chart (full-year cascade: equity vs max-loss floor · cumulative payouts · active accounts)
 - `eu_gu_summary.json` — machine-readable summary (all windows + sensitivity + payout ledgers)
-- `trades_EU_GBP.csv` (forward), `trades_EU_backtest.csv`, `trades_FULLYEAR_EU_GU.csv` — full trade lists
+- `trades_EU_GBP.csv` (forward), `trades_EU_backtest.csv`, `trades_GU_backtest.csv`, `trades_FULLYEAR_EU_GU.csv` — full trade lists
 - Rerun: `python3 strategy_analysis/eu_gu_funded_plan.py` — gates re-verify everything on every run.
 

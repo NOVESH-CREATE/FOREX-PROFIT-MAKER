@@ -11,13 +11,14 @@
 > — by 9 Sep 2026: **5 payouts totalling $1,188.11 paid out + $539.68 cycle
 > profit = $1,727.79 total profit**, 2 active accounts ($12,500 funded),
 > account #1 scaled to $7,500 on 18 Jun 2026, zero breaches. **Backtest
-> rebuilt on the current EU+GU legs only** (the old in-sample numbers were
-> all-assets + partly mislabeled data): EUR backtest 20 trades **+13.0R**
-> (WR 55%, PF 2.44, two-window stable); **GBP backtest impossible until a
-> full-year GBPUSD M5 export is uploaded** (repo has no GBP data pre-Feb).
-> Full-year cascade view (EU full + GU from Feb): **13 payouts, 3 accounts,
-> $25,000 level, $4,103.27 paid out, $5,035.90 total profit**. Verified: the
-> sequence reproduces `EU_GU_RISK_REPORT.md` exactly (+17.50% @1% / +26.90% @1.5%).
+> COMPLETE on both legs** (13 Sep: user-uploaded `GBPUSD_M15_202509011745_202609112045.csv`
+> passed gates D/E and was integrated): EUR backtest 20 trades **+13.00R**
+> (WR 55%, PF 2.44) + GU backtest 22 trades **+7.66R** (WR 63.6%, PF 2.91)
+> = **42 trades +20.66R, WR 59.5%, PF 2.59 — two-window stable** vs +16.63R
+> forward. Full-year cascade (Sep'25–Sep'26, 104 trades): **24 payouts,
+> 4 accounts, $82,500 combined funded, $9,411.08 paid out, $9,561.08 total
+> profit** (hypothetical max-history view). Verified: the forward sequence
+> reproduces `EU_GU_RISK_REPORT.md` exactly (+17.50% @1% / +26.90% @1.5%).
 
 **The plan:** trade ONLY 3 ORB setups per week on a FundYourFX **Classic $5,000**
 account with add-ons (**90% profit split** from day one, **8% max loss**), and
