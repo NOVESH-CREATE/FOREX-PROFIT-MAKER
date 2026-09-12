@@ -1,0 +1,2 @@
+date,day_of_week,pair,orb_time_gmt,orb_time_ist,entry_mode,rr_ratio,expected_wr,direction,orb_high,orb_low,orb_range_pips,entry_time,entry_price,sl_price,tp_price,risk_pips,result,pnl_pips,exit_time,exit_price,exit_reason
+2026-09-10,Thursday,EURUSD,11:30,05:00 PM,15min,2.0,66.7,SHORT,1.16265,1.16224,4.1,2026-09-10 11:45:00,1.16172,1.16285,1.15946,11.3,WIN,22.6,2026-09-10 12:30:00,1.1594600000000004,TP Hit

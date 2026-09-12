@@ -1,5 +1,25 @@
 # FOREX-PROFIT-MAKER — 3-Setup Funded Plan (Classic $5K + add-ons)
 
+> **⚠️ PLAN UPDATE (13 Sep 2026):** USDCAD is **dropped** (32 forward Mondays =
+> netR −1.68R; the 5-min-entry/RR-1:2 variants tested on 12 Sep were all worse —
+> see `strategy_analysis/results/m5_breakout/`). The **plan of record is now
+> EU+GU @ 1.5% risk** (Wed GBPUSD 15:00 GMT RR3 · Thu EURUSD 11:30 GMT RR2
+> 5-min breakout), full FYFX multi-account model with rules **corrected from
+> the official FYFX pages: NO consistency rule, one-time 8% target, minimum
+> $150 payout, fee refund after the 3rd payout buys a new account, scale every
+> 3 payouts**. Results: `strategy_analysis/results/eu_gu_1pct5/EU_GU_FUNDED_REPORT.md`
+> — by 9 Sep 2026: **5 payouts totalling $1,188.11 paid out + $539.68 cycle
+> profit = $1,727.79 total profit**, 2 active accounts ($12,500 funded),
+> account #1 scaled to $7,500 on 18 Jun 2026, zero breaches. **Backtest
+> COMPLETE on both legs** (13 Sep: user-uploaded `GBPUSD_M15_202509011745_202609112045.csv`
+> passed gates D/E and was integrated): EUR backtest 20 trades **+13.00R**
+> (WR 55%, PF 2.44) + GU backtest 22 trades **+7.66R** (WR 63.6%, PF 2.91)
+> = **42 trades +20.66R, WR 59.5%, PF 2.59 — two-window stable** vs +16.63R
+> forward. Full-year cascade (Sep'25–Sep'26, 104 trades): **24 payouts,
+> 4 accounts, $82,500 combined funded, $9,411.08 paid out, $9,561.08 total
+> profit** (hypothetical max-history view). Verified: the forward sequence
+> reproduces `EU_GU_RISK_REPORT.md` exactly (+17.50% @1% / +26.90% @1.5%).
+
 **The plan:** trade ONLY 3 ORB setups per week on a FundYourFX **Classic $5,000**
 account with add-ons (**90% profit split** from day one, **8% max loss**), and
 reinvest every fee refund into a **new $5K account** that trades the same
@@ -53,6 +73,11 @@ combined balance **$28,025** · total paid out **$7,965** by 9 Sep 2026.
 
 - `funded_plan.py` — the one script the plan needs (simulation + chart + report)
 - `strategy_analysis/backtest_engine.py` — ORB trade engine (kept, imported by `funded_plan.py`)
-- `*.htm` — the 4 keeper MT5 history exports (EURUSD M15/M5, GBPUSD M15, USDCAD M15)
+- `strategy_analysis/m5_breakout_test.py` — USDCAD 15-min-mother + **5-min-breakout RR1:2 test** (4 variants, backtest + forward, self-validating: refuses to output if any data/trade gate fails)
+- `strategy_analysis/data_audit.py` — verifies every .htm export (genuine M5/M15 spacing, old-vs-new identity, M5→M15 rebuild vs real M15)
+- `*.htm` — the MT5 history exports (EURUSD M15/M5, GBPUSD M15, USDCAD M15/M5)
+- `strategy_analysis/results/m5_breakout/` — **5-min breakout test deliverable** (`M5_BREAKOUT_REPORT.md`, `equity_comparison.html`, trades CSVs, `summary.json`). Verdict: 5-min entry + RR1:2 does **not** improve USDCAD (forward netR −1.68R → −3.62R); EURUSD forward test verified correct (+13.0R backtest / +12.7R forward)
+- `strategy_analysis/eu_gu_funded_plan.py` — **FINAL PLAN script**: EU+GU only @ 1.5% risk, full FYFX multi-account simulation (self-verifying against `EU_GU_RISK_REPORT.md`, refuses to output on drift)
+- `strategy_analysis/results/eu_gu_1pct5/` — **final plan deliverable** (`EU_GU_FUNDED_REPORT.md`, `eu_gu_funded_equity.html`, payout ledger, equity CSVs, `eu_gu_summary.json`, `trades_EU_GBP.csv`)
 - `strategy_analysis/results/multiacct/` — final deliverable (interactive chart + report)
 - `strategy_analysis/results/classic_addon/` — Classic add-on payout-table reference
