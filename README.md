@@ -1,15 +1,17 @@
 # FOREX-PROFIT-MAKER — 3-Setup Funded Plan (Classic $5K + add-ons)
 
-> **⚠️ PLAN UPDATE (12 Sep 2026):** USDCAD is **dropped** (32 forward Mondays =
+> **⚠️ PLAN UPDATE (13 Sep 2026):** USDCAD is **dropped** (32 forward Mondays =
 > netR −1.68R; the 5-min-entry/RR-1:2 variants tested on 12 Sep were all worse —
 > see `strategy_analysis/results/m5_breakout/`). The **plan of record is now
 > EU+GU @ 1.5% risk** (Wed GBPUSD 15:00 GMT RR3 · Thu EURUSD 11:30 GMT RR2
-> 5-min breakout), full FYFX multi-account model. Results:
-> `strategy_analysis/results/eu_gu_1pct5/EU_GU_FUNDED_REPORT.md` — by
-> 9 Sep 2026: **$593.56 paid out + $588.07 cycle profit = $1,181.63 total
-> profit** on one Classic $5K account, zero breaches, first fee refund
-> (→ account #2) expected at payout #2 (~mid-Oct). Verified: the sequence
-> reproduces `EU_GU_RISK_REPORT.md` exactly (+17.50% @1% / +26.90% @1.5%).
+> 5-min breakout), full FYFX multi-account model with rules **corrected from
+> the official FYFX pages: NO consistency rule, one-time 8% target, minimum
+> $150 payout, fee refund after the 3rd payout buys a new account, scale every
+> 3 payouts**. Results: `strategy_analysis/results/eu_gu_1pct5/EU_GU_FUNDED_REPORT.md`
+> — by 9 Sep 2026: **5 payouts totalling $1,188.11 paid out + $539.68 cycle
+> profit = $1,727.79 total profit**, 2 active accounts ($12,500 funded),
+> account #1 scaled to $7,500 on 18 Jun 2026, zero breaches. Verified: the
+> sequence reproduces `EU_GU_RISK_REPORT.md` exactly (+17.50% @1% / +26.90% @1.5%).
 
 **The plan:** trade ONLY 3 ORB setups per week on a FundYourFX **Classic $5,000**
 account with add-ons (**90% profit split** from day one, **8% max loss**), and
