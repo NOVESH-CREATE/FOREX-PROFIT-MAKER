@@ -1,5 +1,16 @@
 # FOREX-PROFIT-MAKER — 3-Setup Funded Plan (Classic $5K + add-ons)
 
+> **⚠️ PLAN UPDATE (12 Sep 2026):** USDCAD is **dropped** (32 forward Mondays =
+> netR −1.68R; the 5-min-entry/RR-1:2 variants tested on 12 Sep were all worse —
+> see `strategy_analysis/results/m5_breakout/`). The **plan of record is now
+> EU+GU @ 1.5% risk** (Wed GBPUSD 15:00 GMT RR3 · Thu EURUSD 11:30 GMT RR2
+> 5-min breakout), full FYFX multi-account model. Results:
+> `strategy_analysis/results/eu_gu_1pct5/EU_GU_FUNDED_REPORT.md` — by
+> 9 Sep 2026: **$593.56 paid out + $588.07 cycle profit = $1,181.63 total
+> profit** on one Classic $5K account, zero breaches, first fee refund
+> (→ account #2) expected at payout #2 (~mid-Oct). Verified: the sequence
+> reproduces `EU_GU_RISK_REPORT.md` exactly (+17.50% @1% / +26.90% @1.5%).
+
 **The plan:** trade ONLY 3 ORB setups per week on a FundYourFX **Classic $5,000**
 account with add-ons (**90% profit split** from day one, **8% max loss**), and
 reinvest every fee refund into a **new $5K account** that trades the same
@@ -57,5 +68,7 @@ combined balance **$28,025** · total paid out **$7,965** by 9 Sep 2026.
 - `strategy_analysis/data_audit.py` — verifies every .htm export (genuine M5/M15 spacing, old-vs-new identity, M5→M15 rebuild vs real M15)
 - `*.htm` — the MT5 history exports (EURUSD M15/M5, GBPUSD M15, USDCAD M15/M5)
 - `strategy_analysis/results/m5_breakout/` — **5-min breakout test deliverable** (`M5_BREAKOUT_REPORT.md`, `equity_comparison.html`, trades CSVs, `summary.json`). Verdict: 5-min entry + RR1:2 does **not** improve USDCAD (forward netR −1.68R → −3.62R); EURUSD forward test verified correct (+13.0R backtest / +12.7R forward)
+- `strategy_analysis/eu_gu_funded_plan.py` — **FINAL PLAN script**: EU+GU only @ 1.5% risk, full FYFX multi-account simulation (self-verifying against `EU_GU_RISK_REPORT.md`, refuses to output on drift)
+- `strategy_analysis/results/eu_gu_1pct5/` — **final plan deliverable** (`EU_GU_FUNDED_REPORT.md`, `eu_gu_funded_equity.html`, payout ledger, equity CSVs, `eu_gu_summary.json`, `trades_EU_GBP.csv`)
 - `strategy_analysis/results/multiacct/` — final deliverable (interactive chart + report)
 - `strategy_analysis/results/classic_addon/` — Classic add-on payout-table reference

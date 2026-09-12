@@ -1,0 +1,68 @@
+{
+  "plan": "EU+GU only, USDCAD dropped, 1.5% risk/trade",
+  "window": "2026-02-01 -> 2026-09-09",
+  "verification_gate": {
+    "trades": 62,
+    "netR": 16.63,
+    "eu_trades": 31,
+    "gu_trades": 31,
+    "reproduces": "EU_GU_RISK_REPORT.md (+17.50%/+26.90%)"
+  },
+  "at_1pct5": {
+    "accounts": [
+      {
+        "id": 1,
+        "start": "2026-02-01",
+        "n_trades": 62,
+        "breached": false,
+        "events": [
+          {
+            "payout_no": 1,
+            "date": "2026-06-04",
+            "level": 5000,
+            "gross": 659.52,
+            "you": 593.56,
+            "split_pct": 90,
+            "refund": false,
+            "scale": false,
+            "new_level": null
+          }
+        ]
+      }
+    ],
+    "payouts": [
+      {
+        "account": 1,
+        "date": "2026-06-04",
+        "payout_no": 1,
+        "level": 5000,
+        "gross": 659.52,
+        "you": 593.56,
+        "split_pct": 90,
+        "refund": false,
+        "scale": false,
+        "new_level": null,
+        "cumulative": 593.56
+      }
+    ],
+    "opens": [
+      {
+        "account": 1,
+        "date": "2026-02-01"
+      }
+    ],
+    "as_of": {
+      "date": "2026-09-09",
+      "active_accounts": 1,
+      "combined_funded": 5000,
+      "combined_balance": 5588.07,
+      "total_paid_out": 593.56
+    }
+  },
+  "at_1pct_reference": {
+    "active_accounts": 1,
+    "combined_funded": 5000,
+    "combined_balance": 5305.44,
+    "total_paid_out": 473.66
+  }
+}
