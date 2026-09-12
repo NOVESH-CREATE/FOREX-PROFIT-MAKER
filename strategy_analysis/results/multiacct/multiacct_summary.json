@@ -8,343 +8,44 @@
       "events": [
         {
           "payout_no": 1,
-          "date": "2026-02-18",
+          "date": "2026-06-11",
           "level": 5000,
-          "gross": 600.0,
-          "you": 540.0,
-          "split_pct": 90,
-          "refund": false,
-          "scale": false,
-          "new_level": null
-        },
-        {
-          "payout_no": 2,
-          "date": "2026-04-06",
-          "level": 5000,
-          "gross": 650.0,
-          "you": 585.0,
-          "split_pct": 90,
-          "refund": true,
-          "scale": false,
-          "new_level": null
-        },
-        {
-          "payout_no": 3,
-          "date": "2026-05-13",
-          "level": 5000,
-          "gross": 700.0,
-          "you": 630.0,
-          "split_pct": 90,
-          "refund": false,
-          "scale": true,
-          "new_level": 7500
-        },
-        {
-          "payout_no": 4,
-          "date": "2026-07-09",
-          "level": 7500,
-          "gross": 900.0,
-          "you": 810.0,
-          "split_pct": 90,
-          "refund": false,
-          "scale": false,
-          "new_level": null
-        },
-        {
-          "payout_no": 5,
-          "date": "2026-08-03",
-          "level": 7500,
-          "gross": 900.0,
-          "you": 810.0,
-          "split_pct": 90,
-          "refund": false,
-          "scale": false,
-          "new_level": null
-        },
-        {
-          "payout_no": 6,
-          "date": "2026-09-03",
-          "level": 7500,
-          "gross": 900.0,
-          "you": 810.0,
-          "split_pct": 90,
-          "refund": false,
-          "scale": true,
-          "new_level": 10000
-        }
-      ]
-    },
-    {
-      "id": 2,
-      "start": "2026-04-06",
-      "n_trades": 67,
-      "breached": false,
-      "events": [
-        {
-          "payout_no": 1,
-          "date": "2026-04-27",
-          "level": 5000,
-          "gross": 600.0,
-          "you": 540.0,
-          "split_pct": 90,
-          "refund": false,
-          "scale": false,
-          "new_level": null
-        },
-        {
-          "payout_no": 2,
-          "date": "2026-06-10",
-          "level": 5000,
-          "gross": 650.0,
-          "you": 585.0,
-          "split_pct": 90,
-          "refund": true,
-          "scale": false,
-          "new_level": null
-        },
-        {
-          "payout_no": 3,
-          "date": "2026-07-27",
-          "level": 5000,
-          "gross": 600.0,
-          "you": 540.0,
-          "split_pct": 90,
-          "refund": false,
-          "scale": true,
-          "new_level": 7500
-        },
-        {
-          "payout_no": 4,
-          "date": "2026-09-02",
-          "level": 7500,
-          "gross": 1050.0,
-          "you": 945.0,
+          "gross": 643.36,
+          "you": 579.03,
           "split_pct": 90,
           "refund": false,
           "scale": false,
           "new_level": null
         }
       ]
-    },
-    {
-      "id": 3,
-      "start": "2026-06-10",
-      "n_trades": 39,
-      "breached": false,
-      "events": [
-        {
-          "payout_no": 1,
-          "date": "2026-07-15",
-          "level": 5000,
-          "gross": 650.0,
-          "you": 585.0,
-          "split_pct": 90,
-          "refund": false,
-          "scale": false,
-          "new_level": null
-        },
-        {
-          "payout_no": 2,
-          "date": "2026-08-31",
-          "level": 5000,
-          "gross": 650.0,
-          "you": 585.0,
-          "split_pct": 90,
-          "refund": true,
-          "scale": false,
-          "new_level": null
-        }
-      ]
-    },
-    {
-      "id": 4,
-      "start": "2026-08-31",
-      "n_trades": 4,
-      "breached": false,
-      "events": []
     }
   ],
   "payouts": [
     {
       "account": 1,
-      "date": "2026-02-18",
+      "date": "2026-06-11",
       "payout_no": 1,
       "level": 5000,
-      "gross": 600.0,
-      "you": 540.0,
+      "gross": 643.36,
+      "you": 579.03,
       "split_pct": 90,
       "refund": false,
       "scale": false,
       "new_level": null,
-      "cumulative": 540.0
-    },
-    {
-      "account": 1,
-      "date": "2026-04-06",
-      "payout_no": 2,
-      "level": 5000,
-      "gross": 650.0,
-      "you": 585.0,
-      "split_pct": 90,
-      "refund": true,
-      "scale": false,
-      "new_level": null,
-      "cumulative": 1125.0
-    },
-    {
-      "account": 2,
-      "date": "2026-04-27",
-      "payout_no": 1,
-      "level": 5000,
-      "gross": 600.0,
-      "you": 540.0,
-      "split_pct": 90,
-      "refund": false,
-      "scale": false,
-      "new_level": null,
-      "cumulative": 1665.0
-    },
-    {
-      "account": 1,
-      "date": "2026-05-13",
-      "payout_no": 3,
-      "level": 5000,
-      "gross": 700.0,
-      "you": 630.0,
-      "split_pct": 90,
-      "refund": false,
-      "scale": true,
-      "new_level": 7500,
-      "cumulative": 2295.0
-    },
-    {
-      "account": 2,
-      "date": "2026-06-10",
-      "payout_no": 2,
-      "level": 5000,
-      "gross": 650.0,
-      "you": 585.0,
-      "split_pct": 90,
-      "refund": true,
-      "scale": false,
-      "new_level": null,
-      "cumulative": 2880.0
-    },
-    {
-      "account": 1,
-      "date": "2026-07-09",
-      "payout_no": 4,
-      "level": 7500,
-      "gross": 900.0,
-      "you": 810.0,
-      "split_pct": 90,
-      "refund": false,
-      "scale": false,
-      "new_level": null,
-      "cumulative": 3690.0
-    },
-    {
-      "account": 3,
-      "date": "2026-07-15",
-      "payout_no": 1,
-      "level": 5000,
-      "gross": 650.0,
-      "you": 585.0,
-      "split_pct": 90,
-      "refund": false,
-      "scale": false,
-      "new_level": null,
-      "cumulative": 4275.0
-    },
-    {
-      "account": 2,
-      "date": "2026-07-27",
-      "payout_no": 3,
-      "level": 5000,
-      "gross": 600.0,
-      "you": 540.0,
-      "split_pct": 90,
-      "refund": false,
-      "scale": true,
-      "new_level": 7500,
-      "cumulative": 4815.0
-    },
-    {
-      "account": 1,
-      "date": "2026-08-03",
-      "payout_no": 5,
-      "level": 7500,
-      "gross": 900.0,
-      "you": 810.0,
-      "split_pct": 90,
-      "refund": false,
-      "scale": false,
-      "new_level": null,
-      "cumulative": 5625.0
-    },
-    {
-      "account": 3,
-      "date": "2026-08-31",
-      "payout_no": 2,
-      "level": 5000,
-      "gross": 650.0,
-      "you": 585.0,
-      "split_pct": 90,
-      "refund": true,
-      "scale": false,
-      "new_level": null,
-      "cumulative": 6210.0
-    },
-    {
-      "account": 2,
-      "date": "2026-09-02",
-      "payout_no": 4,
-      "level": 7500,
-      "gross": 1050.0,
-      "you": 945.0,
-      "split_pct": 90,
-      "refund": false,
-      "scale": false,
-      "new_level": null,
-      "cumulative": 7155.0
-    },
-    {
-      "account": 1,
-      "date": "2026-09-03",
-      "payout_no": 6,
-      "level": 7500,
-      "gross": 900.0,
-      "you": 810.0,
-      "split_pct": 90,
-      "refund": false,
-      "scale": true,
-      "new_level": 10000,
-      "cumulative": 7965.0
+      "cumulative": 579.03
     }
   ],
   "opens": [
     {
       "account": 1,
       "date": "2026-02-01"
-    },
-    {
-      "account": 2,
-      "date": "2026-04-06"
-    },
-    {
-      "account": 3,
-      "date": "2026-06-10"
-    },
-    {
-      "account": 4,
-      "date": "2026-08-31"
     }
   ],
   "as_of_today": {
     "date": "2026-09-09",
-    "accounts": 4,
-    "combined_funded": 27500,
-    "combined_balance": 28025.0,
-    "total_paid_out": 7965.0
+    "accounts": 1,
+    "combined_funded": 5000,
+    "combined_balance": 5104.14,
+    "total_paid_out": 579.03
   }
 }
