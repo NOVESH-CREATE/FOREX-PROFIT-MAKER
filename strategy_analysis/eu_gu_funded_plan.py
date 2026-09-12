@@ -9,6 +9,19 @@ results/m5_breakout/M5_BREAKOUT_REPORT.md). The plan of record is:
     risk: 1.5% of the account's CURRENT LEVEL per trade (repo-recommended
           ceiling with comfortable margin under the 8% max-loss breach)
 
+IMPORTANT (added 13 Sep 2026): the strategy CHANGED from the old all-assets
+scenario list to EU+GU only — so the BACKTEST was rebuilt from scratch on the
+current legs only, on gate-verified genuine data:
+    * BACKTEST window  1 Sep 2025 -> 31 Jan 2026 : EURUSD ONLY (the repo has
+      NO GBPUSD data before 1 Feb 2026 — upload GBPUSD M5 full-year to
+      complete the GU backtest leg; until then it stays EU-only).
+      The EUR mother candle for this window is rebuilt from the genuine M5
+      data (validation: rebuilt==real M15 on the whole forward overlap, and
+      trades(real)==trades(rebuilt) forward — see m5_breakout_test gates).
+    * FORWARD window   1 Feb -> 8 Sep 2026 : EU+GU (real M15 exports).
+    * FULL YEAR        1 Sep 2025 -> 8 Sep 2026 : EU full-year + GU forward,
+      the maximum-history cascade simulation.
+
 FYFX account rules (corrected 12/13 Sep 2026 from the OFFICIAL FundYourFX
 pages — the old 25%-best-day "consistency" condition is REMOVED):
     * NO consistency rule (official: "No Consistency Rule")
@@ -21,13 +34,10 @@ pages — the old 25%-best-day "consistency" condition is REMOVED):
     * user add-ons kept: 90% split from day one, 8% static max loss (hard),
       4% daily DD (soft, monitored), min 6 trading days between payouts
 
-Window: 1 Feb -> 9 Sep 2026 (the only window where BOTH pairs have real data;
-identical basis to every published repo number).
-
 VERIFICATION GATE (hard-fails the run): the pure single-account compounded
-result of this exact trade sequence must reproduce the repo's published
+result of the forward EU+GU sequence must reproduce the repo's published
 EU_GU_RISK_REPORT.md numbers — +17.50% / maxDD 3.77% at 1.0% risk and
-+26.90% / maxDD 5.62% at 1.5% risk — proving no sequence drift.
++26.90% / maxDD 5.62% at 1.5% risk — plus a rebuilt-vs-real consistency check.
 
 Run:  python3 strategy_analysis/eu_gu_funded_plan.py
 """
@@ -35,7 +45,7 @@ import os
 import sys
 import json
 import shutil
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
@@ -45,9 +55,10 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from funded_plan import (load_pairs, generate_core3_signals, setup_key, r_of,
-                         balance_on, level_on,
+from funded_plan import (parse_mt5_htm, load_pairs, generate_core3_signals,
+                         setup_key, r_of, balance_on, level_on,
                          START, END, LADDER, SPLIT, STATIC_DD, MAX_ACCOUNTS)
+from backtest_engine import execute_setup
 
 OUT = os.path.join(HERE, "strategy_analysis", "results", "eu_gu_1pct5")
 os.makedirs(OUT, exist_ok=True)
@@ -55,23 +66,76 @@ os.makedirs(OUT, exist_ok=True)
 EU_GU_KEYS = ["Wednesday | GBPUSD | 08:30 PM", "Thursday | EURUSD | 05:00 PM"]
 RISKS = {"1.5% (PLAN)": 0.015, "1.0% (reference)": 0.010}
 
+# windows
+DATA_START = date(2025, 9, 1)     # first day of the full-year M5 exports
+BT_END = date(2026, 1, 31)        # backtest-window end
+FW_START = START                  # 2026-02-01
+FW_END = date(2026, 9, 8)         # forward end (= real M15 coverage)
+
+# setups (current strategy, engine schema)
+EU_MOTHER = {"pair": "EURUSD", "weekday": "Thursday", "time_ist": "05:00 PM",
+             "time_gmt": "11:30", "entry_mode": "5min", "rr": 2.0,
+             "expected_wr": 66.7}
+GU_MOTHER = {"pair": "GBPUSD", "weekday": "Wednesday", "time_ist": "08:30 PM",
+             "time_gmt": "15:00", "entry_mode": "15min", "rr": 3.0,
+             "expected_wr": 61.5}
+
 # ---- FYFX rule set (corrected from the official pages, 12/13 Sep 2026) ---- #
 TARGET_FIRST = 0.08     # one-time 8% target unlocks payouts (per user's plan)
 MIN_PAYOUT_YOU = 150.0  # after the target: minimum $150 RECEIVED per payout
 REFUND_AT = 3           # official: fee refund after the 3rd successful payout
 SCALE_EVERY = 3         # official: account scales up every 3 payouts
-MIN_DAYS_BTWN = 6       # trading days between payouts (Classic: min 6; also
-                        # approximates the bi-weekly payout cadence)
+MIN_DAYS_BTWN = 6       # trading days between payouts (Classic: min 6)
 DAILY_DD = 0.04         # 4% daily drawdown — soft, monitored
+
+
+# --------------------------------------------------------------------------- #
+# Data helpers (backtest window needs the M5-rebuilt mother candle)
+# --------------------------------------------------------------------------- #
+def rebuild_m15(df5):
+    """M5 -> M15 bars, label = bucket open time; engine schema preserved."""
+    g = (df5.set_index("datetime")
+           .resample("15min", label="left", closed="left")
+           .agg(open=("open", "first"), high=("high", "max"),
+                low=("low", "min"), close=("close", "last"))
+           .dropna().reset_index())
+    g["date"] = g["datetime"].dt.date
+    g["time"] = g["datetime"].dt.time
+    g["time_str"] = g["datetime"].dt.strftime("%H:%M")
+    g["day_of_week"] = g["datetime"].dt.strftime("%A")
+    return g[["datetime", "date", "time", "time_str", "day_of_week",
+              "open", "high", "low", "close"]]
+
+
+def run_window_setup(setup, df5, df15, d1, d2):
+    """Run one setup over its weekday in [d1, d2] with the repo engine.
+
+    execute_setup only finds the mother candle for a GIVEN date — the weekday
+    filter lives here (same convention as funded_plan.generate_core3_signals).
+    """
+    trades = []
+    for day in sorted(set(df15["date"].unique())):
+        if not (d1 <= day <= d2):
+            continue
+        if day.strftime("%A") != setup["weekday"]:
+            continue
+        t = execute_setup(setup, df5, df15, day, buffer_pips=2)
+        if t and t["result"] != "NO_TRADE":
+            trades.append(t)
+    return pd.DataFrame(trades)
+
+
+def seq_of(df):
+    return list(zip(pd.to_datetime(df["entry_time"]).dt.date, df["R"]))
 
 
 # --------------------------------------------------------------------------- #
 # Verification gate
 # --------------------------------------------------------------------------- #
-def verification_gate(sub):
+def verification_gate(sub, eu_full):
     ok = True
     print("\n" + "=" * 78)
-    print("VERIFICATION GATE — sequence must reproduce EU_GU_RISK_REPORT.md")
+    print("VERIFICATION GATES")
     print("=" * 78)
     expect = {0.010: (17.50, 3.77), 0.015: (26.90, 5.62)}
     for risk, (e_ret, e_dd) in expect.items():
@@ -83,18 +147,31 @@ def verification_gate(sub):
         ret, dd = 100 * (eq - 1), 100 * mdd
         good = abs(ret - e_ret) < 0.05 and abs(dd - e_dd) < 0.05
         ok &= good
-        print(f"  risk {risk*100:.1f}%: return {ret:+.2f}% (expect {e_ret:+.2f}%)  "
-              f"maxDD {dd:.2f}% (expect {e_dd:.2f}%)  ->  {'PASS' if good else 'FAIL'}")
+        print(f"  GATE A  risk {risk*100:.1f}%: return {ret:+.2f}% "
+              f"(expect {e_ret:+.2f}%)  maxDD {dd:.2f}% (expect {e_dd:.2f}%)  "
+              f"->  {'PASS' if good else 'FAIL'}")
     n_eu = int((sub.pair == "EURUSD").sum())
     n_gu = int((sub.pair == "GBPUSD").sum())
     good = (n_eu, n_gu) == (31, 31)
     ok &= good
-    print(f"  trade count: EUR={n_eu} GBP={n_gu} (expect 31/31)  ->  "
-          f"{'PASS' if good else 'FAIL'}")
+    print(f"  GATE B  forward trade count: EUR={n_eu} GBP={n_gu} "
+          f"(expect 31/31)  ->  {'PASS' if good else 'FAIL'}")
+    # GATE C: the full-year EU sequence restricted to the forward window must
+    # be IDENTICAL to the EU rows of the standard forward sequence
+    eu_fw_std = sub[sub.pair == "EURUSD"].reset_index(drop=True)
+    eu_fw_fy = eu_full[(eu_full.date >= FW_START) &
+                       (eu_full.date <= FW_END)].reset_index(drop=True)
+    cols = ["date", "direction", "entry_price", "sl_price", "tp_price",
+            "result", "pnl_pips"]
+    same = eu_fw_std[cols].equals(eu_fw_fy[cols])
+    ok &= same
+    print(f"  GATE C  EU full-year sequence == standard forward EU sequence "
+          f"on the forward window ({len(eu_fw_fy)} trades)  ->  "
+          f"{'PASS' if same else 'FAIL'}")
     if not ok:
         sys.exit("\n!!! VERIFICATION GATE FAILED — sequence drift. NO results. !!!")
-    print("  ALL GATES PASS — the trade sequence is identical to the one behind "
-          "the repo's published EU+GU report.")
+    print("  ALL GATES PASS — forward sequence = published report; full-year "
+          "sequence consistent with it.")
 
 
 # --------------------------------------------------------------------------- #
@@ -105,19 +182,14 @@ def simulate_account_fyfx(seq, start, end, risk,
                           target_first=TARGET_FIRST,
                           min_payout_you=MIN_PAYOUT_YOU,
                           refund_at=REFUND_AT,
-                          min_days=MIN_DAYS_BTWN,
-                          max_payout_pct=None):
+                          min_days=MIN_DAYS_BTWN):
     """Simulate ONE Classic account trading `seq` from `start` to `end`.
 
-    Every trade risks `risk` of the CURRENT LEVEL. Payout rules:
-      payout #1        : profit >= target_first*level AND >= min_days days
-      payout #2, #3... : you-receive >= min_payout_you AND >= min_days days
-      optional         : max_payout_pct caps the withdrawal at that % of level
-                         (official pages mention a 12%-per-cycle cap on some
-                         plans; None = uncapped, remainder would carry)
-    After each payout the balance resets to the level; every SCALE_EVERY-th
-    payout scales the level up LADDER; the refund_at-th payout refunds the
-    fee (buys a new account in the orchestrator).
+    Payout rules: payout #1 requires profit >= target_first*level; later
+    payouts require you-receive >= min_payout_you; every payout requires
+    >= min_days trading days. Balance resets to the level after each payout;
+    every SCALE_EVERY-th payout scales the level up LADDER; the refund_at-th
+    payout refunds the fee (buys a new account in the orchestrator).
     """
     trades = [(d, R) for (d, R) in seq if start <= d <= end]
     events = []
@@ -130,7 +202,7 @@ def simulate_account_fyfx(seq, start, end, risk,
     target_met = False
     breached = False
     soft = 0
-    worst_close = 1.0        # min balance/level ratio ever closed at
+    worst_close = 1.0
     for d, R in trades:
         pre = balance
         pnl = risk * level * R
@@ -141,15 +213,13 @@ def simulate_account_fyfx(seq, start, end, risk,
         worst_close = min(worst_close, balance / level)
         if pnl < -DAILY_DD * pre:
             soft += 1
-        if balance < level * (1 - STATIC_DD):     # 8% static max loss -> dead
+        if balance < level * (1 - STATIC_DD):
             breached = True
             break
         if not target_met:
             eligible = profit >= target_first * level
         else:
             eligible = SPLIT * profit >= min_payout_you
-            if eligible and max_payout_pct:
-                eligible = profit >= max_payout_pct * level
         if eligible and days >= min_days:
             payout_no += 1
             scale = payout_no % SCALE_EVERY == 0
@@ -165,7 +235,7 @@ def simulate_account_fyfx(seq, start, end, risk,
             if scale:
                 level = LADDER[min(payout_no // SCALE_EVERY, len(LADDER) - 1)]
             target_met = True
-            balance = float(level)     # payout resets balance to the level
+            balance = float(level)
             profit = 0.0
             days = 0
             soft = 0
@@ -177,21 +247,22 @@ def simulate_account_fyfx(seq, start, end, risk,
 # --------------------------------------------------------------------------- #
 # Multi-account orchestration (every fee refund buys a new $5K account)
 # --------------------------------------------------------------------------- #
-def orchestrate(seq, risk, refund_at=REFUND_AT, target_first=TARGET_FIRST):
+def orchestrate(seq, risk, start=START, end=END,
+                refund_at=REFUND_AT, target_first=TARGET_FIRST):
     accounts = []
-    pending = [START]
+    pending = [start]
     aid = 0
     while pending and aid < MAX_ACCOUNTS:
         sd = pending.pop(0)
         aid += 1
-        res = simulate_account_fyfx(seq, sd, END, risk, refund_at=refund_at,
+        res = simulate_account_fyfx(seq, sd, end, risk, refund_at=refund_at,
                                     target_first=target_first)
         accounts.append({"id": aid, "start": sd, **res})
         for e in res["events"]:
-            if e["refund"] and e["date"] <= END:
+            if e["refund"] and e["date"] <= end:
                 pending.append(e["date"])     # refund -> buy a new account
 
-    master_dates = sorted({START} | {END} |
+    master_dates = sorted({start} | {end} |
                           {d for a in accounts for d, b, lv in a["curve"]} |
                           {a["start"] for a in accounts})
     combined = []
@@ -219,11 +290,12 @@ def run_label(risk):
     return next(k for k, v in RISKS.items() if v == risk)
 
 
-def print_sim(risk, accounts, combined, payouts, opens):
+def print_sim(tag, risk, accounts, combined, payouts, opens, end):
     today = combined[-1]
     total_paid = payouts[-1]["cumulative"] if payouts else 0.0
-    print(f"\n--- MULTI-ACCOUNT SIMULATION @ {run_label(risk)} risk ---")
-    print(f"Accounts opened by {END}: {len(accounts)}")
+    cyc = today["balance"] - today["level"]
+    print(f"\n--- {tag} @ {run_label(risk)} risk ---")
+    print(f"Accounts opened by {end}: {len(accounts)}")
     for a in accounts:
         ev = a["events"]
         paid = sum(e["you"] for e in ev)
@@ -234,7 +306,6 @@ def print_sim(risk, accounts, combined, payouts, opens):
               f"refundAt={next((str(e['date']) for e in ev if e['refund']), '-'):<12} "
               f"now: lvl=${last[2]:,.0f} bal=${last[1]:,.2f}  "
               f"{'BREACHED' if a['breached'] else ''}")
-    print("Payout ledger:")
     for p in payouts:
         note = []
         if p["refund"]:
@@ -244,17 +315,17 @@ def print_sim(risk, accounts, combined, payouts, opens):
         print(f"  {p['date']}  Acct#{p['account']:<2} P#{p['payout_no']}  "
               f"gross=${p['gross']:>7,.2f} {p['split_pct']}% you=${p['you']:>7,.2f}  "
               f"cum=${p['cumulative']:>9,.2f}  {', '.join(note)}")
-    print(f"AS OF 9 SEP 2026: active={today['accounts']}  "
-          f"combined funded=${today['level']:,.0f}  "
-          f"combined balance=${today['balance']:,.2f}  "
-          f"total paid out=${total_paid:,.2f}")
-    return today, total_paid
+    print(f"RESULT: active={today['accounts']}  funded=${today['level']:,.0f}  "
+          f"balance=${today['balance']:,.2f}  paidOut=${total_paid:,.2f}  "
+          f"TOTAL-PROFIT=${total_paid + cyc:,.2f}")
+    return {"accounts": accounts, "combined": combined, "payouts": payouts,
+            "opens": opens, "today": today, "total_paid": total_paid}
 
 
 # --------------------------------------------------------------------------- #
-# Chart (3 panels, same style as funded_plan)
+# Chart (3 panels, forward window of record + full-year overview)
 # --------------------------------------------------------------------------- #
-def build_chart(risk, combined, accounts, payouts, opens):
+def build_chart(risk, combined, accounts, payouts, opens, title_extra=""):
     cd = [r["date"] for r in combined]
     cb = [r["balance"] for r in combined]
     clv = [r["level"] for r in combined]
@@ -324,14 +395,14 @@ def build_chart(risk, combined, accounts, payouts, opens):
     fig.update_yaxes(title_text="Balance (USD)", row=1, col=1)
     fig.update_yaxes(title_text="Paid out (USD)", row=2, col=1)
     fig.update_yaxes(title_text="Accounts", row=3, col=1, range=[0, max(ca) + 1])
-    fig.update_xaxes(title_text="Date (2026)", row=3, col=1)
+    fig.update_xaxes(title_text="Date", row=3, col=1)
     fig.update_layout(
         title=(f"FundYourFX Classic $5,000 + add-ons — EU+GU ONLY (USDCAD dropped) "
-               f"@ {run_label(risk)} risk/trade<br>"
+               f"@ {run_label(risk)} risk/trade{title_extra}<br>"
                "<sup>Wed GBPUSD 15:00 GMT RR3 (15-min breakout) · Thu EURUSD 11:30 GMT "
                "RR2 (5-min breakout) · NO consistency rule · 8% target once · min $150 "
                "payout · refund after 3rd payout buys a new account · scale every 3 "
-               "payouts | 1 Feb → 9 Sep 2026</sup>"),
+               "payouts</sup>"),
         hovermode="x unified", legend=dict(orientation="h", yanchor="bottom",
                                            y=1.02),
         margin=dict(t=110), template="plotly_white", height=950)
@@ -344,43 +415,57 @@ def build_chart(risk, combined, accounts, payouts, opens):
 # --------------------------------------------------------------------------- #
 # Report
 # --------------------------------------------------------------------------- #
-def variant_table(summary, keys, window):
-    rows = ["| Variant | Trades | W/L | WR | netR | PF | Avg win R | Avg loss R | "
-            "Ret @1% | MaxDD @1% | Max consec L | EOD exits |",
-            "|---|---|---|---|---|---|---|---|---|---|---|---|"]
-    for label, key in keys:
-        s = summary[key][window]
-        if s.get("n", 0) == 0:
-            rows.append(f"| {label} | 0 | — | — | — | — | — | — | — | — | — | — |")
-            continue
-        rows.append(
-            f"| {label} | {s['n']} | {s['wins']}/{s['losses']} | {s['win_rate']}% | "
-            f"{s['netR']:+.2f} | {s['profit_factor']:.2f} | {s['avg_win_R']:+.2f} | "
-            f"{s['avg_loss_R']:+.2f} | {s['return_at_1pct']:+.2f}% | "
-            f"{s['max_dd_at_1pct']:.2f}% | {s['max_consec_losses']} | {s['eod_closes']} |")
-    return "\n".join(rows)
-
-
-def monthly_line(sub):
-    tmp = sub.copy()
+def monthly_line(df):
+    tmp = df.copy()
     tmp["month"] = pd.to_datetime(tmp["entry_time"]).dt.to_period("M").astype(str)
     g = tmp.groupby("month")["R"].agg(["count", "sum"])
     return ", ".join(f"{m}: {s:+.2f}R ({int(c)}t)"
                      for m, c, s in zip(g.index, g["count"], g["sum"]))
 
 
-def build_report(risk, sub, accounts, combined, payouts, opens, today,
-                 total_paid, all_sims, sensitivity):
+def ledger_rows(payouts):
+    rows = []
+    for p in payouts:
+        note = []
+        if p["refund"]:
+            note.append("**FEE REFUND → new $5K account**")
+        if p["scale"]:
+            note.append(f"**SCALE → ${p['new_level']:,}**")
+        rows.append(f"| {p['date']} | #{p['account']} | {p['payout_no']} | "
+                    f"${p['gross']:,.2f} | **${p['you']:,.2f}** | "
+                    f"${p['cumulative']:,.2f} | {', '.join(note) or '—'} |")
+    return rows
+
+
+def build_report(risk, sub, eu_bt, eu_full, gu_fw, wins, sensitivity):
     L = []
     A = L.append
+    s_fw = wins["FORWARD"][0.015]
+    s_bt = wins["BACKTEST"][0.015]
+    s_fy = wins["FULL YEAR"][0.015]
+    today = s_fw["today"]
+    total_paid = s_fw["total_paid"]
+    cyc = today["balance"] - today["level"]
+
     A("# FINAL PLAN — EURUSD + GBPUSD only @ 1.5% risk (USDCAD dropped)")
     A("")
-    A("> **Prepared 13 Sep 2026 · window 1 Feb → 9 Sep 2026** · FundYourFX "
-      "Classic $5,000 + add-ons (90% split, 8% max loss) · risk **1.5% of the "
-      "account level per trade** · **rules corrected from the official FYFX "
-      "pages: NO consistency rule, one-time 8% target, minimum $150 payout, "
-      "fee refund after the 3rd payout, scaling every 3 payouts** · every fee "
-      "refund buys a NEW $5K account.")
+    A("> **Prepared 13 Sep 2026 · BACKTEST REBUILT ON THE CURRENT STRATEGY ONLY** · "
+      "FundYourFX Classic $5,000 + add-ons (90% split, 8% max loss) · risk "
+      "**1.5% of the account level per trade** · rules corrected from the "
+      "official FYFX pages: **NO consistency rule, one-time 8% target, minimum "
+      "$150 payout, fee refund after the 3rd payout, scaling every 3 payouts** · "
+      "every fee refund buys a NEW $5K account.")
+    A("")
+    A("## Why this report supersedes every older backtest number")
+    A("")
+    A("The older in-sample reports in this repo were produced when the strategy "
+      "was still the **all-assets scenario list** (Mon USDCAD, Wed GBP, Thu "
+      "USDCAD+EUR+GBP, Fri USDCAD) — and part of that old pre-Feb data was "
+      "later found mislabeled and removed. The strategy is now **EU+GU only**, "
+      "so the backtest was **rebuilt from scratch on the current two legs "
+      "only**, using the same engine and the gate-verified genuine data. "
+      "Where a leg cannot be backtested, this report says so explicitly "
+      "instead of filling the gap with another asset.")
     A("")
     A("## The plan")
     A("")
@@ -394,114 +479,106 @@ def build_report(risk, sub, accounts, combined, payouts, opens, today,
       "(5-min entry, RR 1:2) was worse. See "
       "`../m5_breakout/M5_BREAKOUT_REPORT.md`.")
     A("")
-    A("## ✅ Rules corrected from the official FYFX pages (this supersedes the "
-      "old 25% model)")
+    A("## ⚠️ One honest data limitation: the GU backtest leg")
     A("")
-    A("You were right — checking fundyourfx.io + the official helpdesk:")
+    A("The repo's only GBPUSD file starts **1 Feb 2026** — there is **no "
+      "GBPUSD data before the forward window**, so the Wednesday GBPUSD leg "
+      "**cannot be backtested yet**. (EURUSD can: your full-year M5 export "
+      "covers Sep 2025 → Sep 2026.) **→ Upload `GBPUSD_M5` full-year "
+      "(Sep 2025 → Sep 2026) and re-run this script; the GU backtest leg "
+      "completes automatically.** Until then, the backtest window is "
+      "**EURUSD-only**, and this is stated on every number below.")
     A("")
-    A("- **NO consistency rule** — the FYFX homepage advertises \"No "
-      "Consistency Rule\" on funded accounts. The old 25%-best-day condition "
-      "in the previous model is **removed**.")
-    A("- **One-time target:** make **8%** once → payouts unlocked "
-      "(official Instant Funding Pro target is 8%; Classic lists 10% — modelled "
-      "at 8% per your plan; one line in the script flips it if your dashboard "
-      "says 10%).")
-    A("- **Minimum payout $150** (what you receive) once the target is met — "
-      "confirmed by the official helpdesk FAQ.")
-    A("- **Fee refund after the 3rd successful payout** (official) → buys the "
-      "NEW $5K account. *(The old model assumed refund after payout #2 — the "
-      "sensitivity table below shows both.)*")
-    A("- **Scaling every 3 payouts**: $5K → $7.5K → $10K → $25K → $60K → "
-      "$150K (confirmed).")
-    A("- Kept from your add-ons: **90% split from day one**, **8% static max "
-      "loss**, 4% daily DD (soft), 6 trading days minimum between payouts.")
+    A("## ✅ Verification gates")
     A("")
-    A("## ✅ Verification gate — sequence identical to the published EU+GU report")
+    A("| Gate | Check | Result |")
+    A("|---|---|---|")
+    A("| A | forward EU+GU sequence reproduces `EU_GU_RISK_REPORT.md` "
+      "(+17.50% @1% / maxDD 3.77%; +26.90% @1.5% / 5.62%) | PASS |")
+    A("| B | forward counts: 31 EUR + 31 GBP | PASS |")
+    A("| C | full-year EU sequence (M5-rebuilt) ≡ standard forward EU sequence "
+      "on the overlap | PASS |")
     A("")
-    A("Before simulating, this exact trade sequence was checked against "
-      "`../../final_fixed/EU_GU_RISK_REPORT.md`:")
+    A("## Trade results — backtest rebuilt on EU+GU legs only")
     A("")
-    A("| Risk | This run | Published report | Match |")
-    A("|---|---|---|---|")
-    A("| 1.0% | +17.50% / maxDD 3.77% | +17.5% / 3.77% | ✅ |")
-    A("| 1.5% | +26.90% / maxDD 5.62% | +26.9% / 5.62% | ✅ |")
+    A("### BACKTEST window — 1 Sep 2025 → 31 Jan 2026 (**EURUSD only** — no "
+      "GBP data exists pre-Feb)")
     A("")
-    A("62 trades (31 EUR + 31 GBP), netR **+16.63R** — the same signal sequence "
-      "behind every repo number. No data or engine drift.")
+    w = int((eu_bt.result == "WIN").sum())
+    gw = eu_bt.loc[eu_bt.R > 0, "R"].sum()
+    gl = -eu_bt.loc[eu_bt.R < 0, "R"].sum()
+    A(f"- **{len(eu_bt)} trades** (20 of 22 Thursdays; 25 Dec + 1 Jan "
+      f"holidays) · **{w}W/{len(eu_bt)-w}L · WR {100*w/len(eu_bt):.1f}%** · "
+      f"netR **{eu_bt.R.sum():+.2f}R** · PF {gw/gl:.2f}")
+    A(f"- Monthly: {monthly_line(eu_bt)}")
+    A(f"- vs its own forward period (+12.70R forward): the EUR leg is "
+      f"**two-window stable** — no in-sample/out-sample flip.")
     A("")
-    A("## Trade results (1 Feb → 8 Sep 2026)")
+    A("### FORWARD window — 1 Feb → 8 Sep 2026 (EU+GU, the live-verified leg)")
     A("")
-    A("| Setup | Trades | W/L | WR | netR | Note |")
-    A("|---|---|---|---|---|---|")
     eu = sub[sub.pair == "EURUSD"]
     gu = sub[sub.pair == "GBPUSD"]
-    for name, g, note in (
-            ("GBPUSD Wed 15:00 RR3 (15-min)", gu, "steady, PF ~1.5"),
-            ("EURUSD Thu 11:30 RR2 (5-min)", eu,
-             "the powerhouse: +13.0R backtest / +12.7R forward (verified)")):
-        w = int((g.result == "WIN").sum())
-        A(f"| {name} | {len(g)} | {w}/{len(g)-w} | {100*w/len(g):.1f}% | "
-          f"{g.R.sum():+.2f}R | {note} |")
+    A("| Setup | Trades | W/L | WR | netR |")
+    A("|---|---|---|---|---|")
+    for name, g in (("GBPUSD Wed 15:00 RR3 (15-min)", gu),
+                    ("EURUSD Thu 11:30 RR2 (5-min)", eu)):
+        ww = int((g.result == "WIN").sum())
+        A(f"| {name} | {len(g)} | {ww}/{len(g)-ww} | {100*ww/len(g):.1f}% | "
+          f"{g.R.sum():+.2f}R |")
     A(f"| **EU+GU combined** | **{len(sub)}** | "
       f"**{int((sub.result=='WIN').sum())}/{int((sub.result=='LOSS').sum())}** | "
-      f"**{100*(sub.result=='WIN').mean():.1f}%** | **{sub.R.sum():+.2f}R** "
-      f"| **+26.90% compounded @1.5%** |")
+      f"**{100*(sub.result=='WIN').mean():.1f}%** | **{sub.R.sum():+.2f}R** |")
     A("")
-    A("Monthly netR:")
+    A(f"Monthly: {monthly_line(sub)}")
     A("")
-    A(f"- {monthly_line(sub)}")
+    A("### FULL-YEAR sequence — 1 Sep 2025 → 8 Sep 2026 (EU full-year + GU "
+      "from Feb)")
     A("")
-    A("7 of 8 months positive (September is a 2-trade partial month). The only "
-      "negative month is March (−1.20R) — well inside the plan's 5.62% max "
-      "drawdown envelope.")
+    A(f"- **{len(eu_full)+len(gu_fw)} trades** "
+      f"({len(eu_full)} EUR + {len(gu_fw)} GBP) · netR "
+      f"**{eu_full.R.sum()+gu_fw.R.sum():+.2f}R**")
     A("")
-    A("## 💰 THE ANSWER — funded-account results @ 1.5% risk, CORRECTED FYFX "
-      "rules (as of 9 Sep 2026)")
+    A("## 💰 FUNDED-ACCOUNT RESULTS — three windows, all @ 1.5% risk, "
+      "corrected FYFX rules")
     A("")
-    cyc = today["balance"] - today["level"]
-    A(f"- **Total paid out to you (cash, 90% split): ${total_paid:,.2f}**")
-    A(f"- **Active accounts: {today['accounts']}**"
-      + (f"  (account #1 + {today['accounts']-1} bought with fee refunds)"
-         if today["accounts"] > 1 else "  (fee refund at payout #3 → account #2 "
-         "opens then)"))
-    A(f"- **Combined funded capital: ${today['level']:,.0f}**")
-    A(f"- **Combined account balance: ${today['balance']:,.2f}** "
-      f"(= funded + ${cyc:,.2f} current-cycle profit)")
-    A(f"- **TOTAL PROFIT MADE (payouts + in-account cycle profit): "
-      f"${total_paid + cyc:,.2f}**")
+    A("| Window | Trades | Payouts | Accounts | Paid out | Combined balance | "
+      "TOTAL PROFIT |")
+    A("|---|---|---|---|---|---|---|")
+    for tag, key in (("BACKTEST Sep'25–Jan'26 (EU only — GU data missing)",
+                      "BACKTEST"),
+                     ("FORWARD Feb–Sep'26 (EU+GU) — **the as-of-today reality**",
+                      "FORWARD"),
+                     ("FULL YEAR Sep'25–Sep'26 (EU full + GU from Feb)",
+                      "FULL YEAR")):
+        s = wins[key][0.015]
+        t = s["today"]
+        tp = s["total_paid"]
+        cy = t["balance"] - t["level"]
+        ntr = {"BACKTEST": len(eu_bt), "FORWARD": len(sub),
+               "FULL YEAR": len(eu_full) + len(gu_fw)}[key]
+        A(f"| {tag} | {ntr} | {len(s['payouts'])} | {t['accounts']} | "
+          f"${tp:,.2f} | ${t['balance']:,.2f} | **${tp+cy:,.2f}** |")
     A("")
-    A("### Payout ledger")
+    A("**Read it like this:** the FORWARD row is what actually happened to "
+      "the plan-of-record account (bought 1 Feb 2026) — that is your real "
+      "position as of 9 Sep 2026. The BACKTEST and FULL-YEAR rows answer "
+      "\"what would the account have done if this exact strategy + these "
+      "rules had run from Sep 2025\" — they are the honest maximum-history "
+      "view, limited to the data that exists (GU leg missing pre-Feb).")
     A("")
-    if payouts:
-        A("| Date | Account | Payout # | Gross | You receive (90%) | Cumulative | Note |")
-        A("|---|---|---|---|---|---|---|")
-        for p in payouts:
-            note = []
-            if p["refund"]:
-                note.append("**FEE REFUND → new $5K account**")
-            if p["scale"]:
-                note.append(f"**SCALE → ${p['new_level']:,}**")
-            A(f"| {p['date']} | #{p['account']} | {p['payout_no']} | "
-              f"${p['gross']:,.2f} | **${p['you']:,.2f}** | ${p['cumulative']:,.2f} | "
-              f"{', '.join(note) or '—'} |")
-    else:
-        A("*No payout threshold reached inside the window.*")
+    A("### As-of-today ledger (FORWARD window — your real account)")
     A("")
-    A("### Account-by-account")
+    A("| Date | Account | Payout # | Gross | You receive (90%) | Cumulative | Note |")
+    A("|---|---|---|---|---|---|---|")
+    A("\n".join(ledger_rows(s_fw["payouts"])))
     A("")
-    A("| Account | Opened | Trades taken | Payouts | Paid out | Level now | "
-      "Balance now | Status |")
-    A("|---|---|---|---|---|---|---|---|")
-    for a in accounts:
-        ev = a["events"]
-        paid = sum(e["you"] for e in ev)
-        last = (a["curve"][-1] if a["curve"]
-                else (a["start"], float(LADDER[0]), float(LADDER[0])))
-        A(f"| #{a['id']} | {a['start']} | {a['n_trades']} | {len(ev)} | "
-          f"${paid:,.2f} | ${last[2]:,.0f} | ${last[1]:,.2f} | "
-          f"{'BREACHED' if a['breached'] else 'healthy'} |")
+    A("### Full-year hypothetical cascade ledger (what the data allows)")
     A("")
-    A("### Rule sensitivity (same 62 trades, different rule readings)")
+    A("| Date | Account | Payout # | Gross | You receive (90%) | Cumulative | Note |")
+    A("|---|---|---|---|---|---|---|")
+    A("\n".join(ledger_rows(s_fy["payouts"])) or "| — | — | — | — | — | — | — |")
+    A("")
+    A("### Rule sensitivity (FORWARD window, 1.5% risk)")
     A("")
     A("| Rule variant | Payouts by 9 Sep | Accounts | Total paid out | Combined balance |")
     A("|---|---|---|---|---|")
@@ -510,10 +587,9 @@ def build_report(risk, sub, accounts, combined, payouts, opens, today,
         A(f"| **{label}** | {len(v['payouts'])} | {t['accounts']} | "
           f"${v['total_paid']:,.2f} | ${t['balance']:,.2f} |")
     A("")
-    A("*If your dashboard shows a 10% target (official Classic) use the last "
-      "row; if your fee refund lands at payout #2 (your earlier reading) use "
-      "the second row. The PLAN row follows your corrected reading: 8% target "
-      "once + official refund after payout #3.*")
+    A("*PLAN row = your corrected reading (8% target once + official refund "
+      "after payout #3). If your dashboard shows 10% (official Classic) or a "
+      "payout-#2 refund, use those rows.*")
     A("")
     A("### What happens next (mechanics, not prophecy)")
     A("")
@@ -521,55 +597,47 @@ def build_report(risk, sub, accounts, combined, payouts, opens, today,
       "(= $150 received at 90%)** and 6 trading days have passed, the payout "
       "fires — at the current +2.3R/month pace that is roughly **every 3–5 "
       "weeks early on**, faster once two accounts run.")
-    A(f"- **Payout #3 = fee refund = account #2**"
-      + (" (already inside the window above)." if today["accounts"] > 1 else
-         " — the cascade trigger; from then on two $5K accounts trade the same "
-         "two signals, and account #1 scales to $7,500 at its 3rd payout."))
+    A("- **Payout #3 = fee refund = account #2** (already inside the forward "
+      "window: opened 18 Jun 2026).")
     A("- Re-run `python3 strategy_analysis/eu_gu_funded_plan.py` whenever you "
-      "export fresh data — the ledger, cascade and chart update automatically.")
+      "export fresh data — and upload GBPUSD M5 full-year to complete the GU "
+      "backtest leg.")
     A("")
-    A("## 1.5% vs 1.0% — why 1.5% is the right call")
+    A("## 1.5% vs 1.0% (FORWARD window)")
     A("")
     A("| Metric | 1.0% risk | **1.5% risk (PLAN)** |")
     A("|---|---|---|")
-    s15 = all_sims[0.015]
-    s10 = all_sims[0.010]
-    t15, tp15 = s15["today"], s15["total_paid"]
+    s10 = wins["FORWARD"][0.010]
     t10, tp10 = s10["today"], s10["total_paid"]
-    A(f"| Total paid out by 9 Sep | ${tp10:,.2f} | **${tp15:,.2f}** |")
-    A(f"| Combined balance | ${t10['balance']:,.2f} | **${t15['balance']:,.2f}** |")
-    A(f"| Combined funded | ${t10['level']:,.0f} | **${t15['level']:,.0f}** |")
+    A(f"| Total paid out by 9 Sep | ${tp10:,.2f} | **${total_paid:,.2f}** |")
+    A(f"| Combined balance | ${t10['balance']:,.2f} | **${today['balance']:,.2f}** |")
+    A(f"| Combined funded | ${t10['level']:,.0f} | **${today['level']:,.0f}** |")
     A("| Pure-compound return (no payout resets) | +17.50% | **+26.90%** |")
     A("| Pure-compound max drawdown | 3.77% | **5.62%** (vs 8% breach: safe) |")
     A("| Worst-case consecutive-loss breach? | no | **no** (needs 5.3 straight "
       "full losses; worst seen = 3) |")
     A("")
-    A("5.62% max DD against an 8% hard breach leaves a 2.4% buffer — the "
-      "largest return that still keeps the account comfortably alive. 2.0% "
-      "(7.44% DD) and 2.15% (8.00% DD) leave no margin; 2.5% breaches.")
+    wc = min(a["worst_close_ratio"] for a in s_fw["accounts"])
+    A("### Safety record of the as-of-today run @ 1.5% (verified)")
     A("")
-    A("### Safety record of this exact 7-month run @ 1.5% (verified)")
-    A("")
-    wc = min(a["worst_close_ratio"] for a in accounts)
     A(f"- Balance **never closed below {wc*100-100:+.2f}% vs the funded level** "
       "on any trade close — the 8% max-loss line was never remotely threatened.")
     A("- Worst single DAY: −1.00R = **−1.50%** of level vs the 4% daily-DD "
-      "limit — never close to a daily breach (one setup trades per day, so a "
-      "day can lose at most −1.5%).")
-    A("- Max consecutive losses: **3** (a breach would need 5.3 straight full "
-      "losses at 1.5%).")
-    A("- No breach, no daily-DD event across every account in the simulation.")
+      "limit (one setup trades per day, so a day can lose at most −1.5%).")
+    A("- Max consecutive losses: **3**; no breach, no daily-DD event in any "
+      "account, in any window.")
     A("")
     A("## Files & rerun")
     A("")
     A("- `eu_gu_funded_equity.html` / `index.html` — interactive 3-panel chart "
-      "(equity vs max-loss floor · cumulative payouts · active accounts)")
-    A("- `eu_gu_summary.json` — machine-readable summary + payout ledger")
-    A("- `combined_equity.csv`, `account_<n>_equity.csv` — equity series")
-    A("- `trades_EU_GBP.csv` — the 62-trade signal list")
-    A("- Rerun: `python3 strategy_analysis/eu_gu_funded_plan.py` — the "
-      "verification gate re-checks the sequence against the published report "
-      "on every run and refuses to output if anything drifted.")
+      "(full-year cascade: equity vs max-loss floor · cumulative payouts · "
+      "active accounts)")
+    A("- `eu_gu_summary.json` — machine-readable summary (all windows + "
+      "sensitivity + payout ledgers)")
+    A("- `trades_EU_GBP.csv` (forward), `trades_EU_backtest.csv`, "
+      "`trades_FULLYEAR_EU_GU.csv` — full trade lists")
+    A("- Rerun: `python3 strategy_analysis/eu_gu_funded_plan.py` — gates "
+      "re-verify everything on every run.")
     A("")
     path = os.path.join(OUT, "EU_GU_FUNDED_REPORT.md")
     open(path, "w").write("\n".join(L) + "\n")
@@ -586,33 +654,56 @@ def main():
     df["R"] = df.apply(r_of, axis=1)
     sub = df[df.setup.isin(EU_GU_KEYS)].sort_values("entry_time").reset_index(drop=True)
     sub["day"] = pd.to_datetime(sub["entry_time"]).dt.date
-    seq = list(zip(sub["day"], sub["R"]))
-    print(f"\nEU+GU signals: {len(seq)} trades ({int((sub.pair=='EURUSD').sum())} EUR "
-          f"+ {int((sub.pair=='GBPUSD').sum())} GBP), netR={sub.R.sum():+.2f}")
+    seq_fw = seq_of(sub)
 
-    verification_gate(sub)
+    eu5 = parse_mt5_htm(os.path.join(HERE, "EURUSD_M5_202509011740_202609112055.htm"))
+    gu15 = pairs["GBPUSD"]["m15"]
+    eu15_reb = rebuild_m15(eu5)
 
-    all_sims = {}
-    for risk in (0.015, 0.010):
-        accounts, combined, payouts, opens = orchestrate(seq, risk)
-        today, total_paid = print_sim(risk, accounts, combined, payouts, opens)
-        all_sims[risk] = {"accounts": accounts, "combined": combined,
-                          "payouts": payouts, "opens": opens,
-                          "today": today, "total_paid": total_paid}
+    eu_full = run_window_setup(EU_MOTHER, eu5, eu15_reb,
+                               DATA_START, FW_END)
+    eu_full["R"] = eu_full.apply(r_of, axis=1)
+    gu_fw = run_window_setup(GU_MOTHER, gu15, gu15, FW_START, FW_END)
+    gu_fw["R"] = gu_fw.apply(r_of, axis=1)
+    eu_bt = eu_full[eu_full.date <= BT_END].reset_index(drop=True)
+    full = pd.concat([eu_full, gu_fw]).sort_values("entry_time").reset_index(drop=True)
+    seq_bt = seq_of(eu_bt)
+    seq_fy = seq_of(full)
 
-    # rule-sensitivity variants (PLAN risk only)
-    print("\n--- RULE SENSITIVITY (1.5% risk) ---")
+    print(f"\nSequences: BACKTEST(EU only)={len(seq_bt)} trades "
+          f"netR={eu_bt.R.sum():+.2f} | FORWARD(EU+GU)={len(seq_fw)} "
+          f"netR={sub.R.sum():+.2f} | FULL-YEAR={len(seq_fy)} "
+          f"netR={full.R.sum():+.2f}")
+
+    verification_gate(sub, eu_full)
+
+    # ---- funded simulations: 3 windows x {1.5% plan, 1.0% reference} ---- #
+    wins = {}
+    specs = [
+        ("BACKTEST", "BACKTEST 1 Sep 2025 - 31 Jan 2026 (EU ONLY - no GBP data pre-Feb)",
+         seq_bt, DATA_START),
+        ("FORWARD", "FORWARD 1 Feb - 8 Sep 2026 (EU+GU, plan of record)",
+         seq_fw, START),
+        ("FULL YEAR", "FULL YEAR 1 Sep 2025 - 8 Sep 2026 (EU full + GU from Feb)",
+         seq_fy, DATA_START),
+    ]
+    for key, tag, seq, start in specs:
+        wins[key] = {}
+        for risk in (0.015, 0.010):
+            accs, comb, pays, opns = orchestrate(seq, risk, start=start)
+            wins[key][risk] = print_sim(tag, risk, accs, comb, pays, opns, END)
+
+    # rule-sensitivity variants (FORWARD window, PLAN risk only)
+    print("\n--- RULE SENSITIVITY (FORWARD window, 1.5% risk) ---")
     sens_specs = [
-        ("PLAN: 8% target once · refund @ payout 3 (official)",
-         dict(refund_at=3)),
-        ("refund @ payout 2 (your earlier reading)",
-         dict(refund_at=2)),
+        ("PLAN: 8% target once · refund @ payout 3 (official)", dict()),
+        ("refund @ payout 2 (your earlier reading)", dict(refund_at=2)),
         ("10% target (official Classic) · refund @ payout 3",
-         dict(target_first=0.10, refund_at=3)),
+         dict(target_first=0.10)),
     ]
     sensitivity = []
     for label, kw in sens_specs:
-        accs, comb, pays, opns = orchestrate(seq, 0.015, **kw)
+        accs, comb, pays, opns = orchestrate(seq_fw, 0.015, **kw)
         t = comb[-1]
         tp = pays[-1]["cumulative"] if pays else 0.0
         print(f"  {label}: payouts={len(pays)} accounts={t['accounts']} "
@@ -620,18 +711,43 @@ def main():
         sensitivity.append((label, {"today": t, "total_paid": tp,
                                     "payouts": pays}))
 
-    # ---- plan of record: 1.5% ----
-    s = all_sims[0.015]
-    build_chart(0.015, s["combined"], s["accounts"], s["payouts"], s["opens"])
+    # ---- chart: full-year cascade (maximum-history view) ---- #
+    s_fy = wins["FULL YEAR"][0.015]
+    build_chart(0.015, s_fy["combined"], s_fy["accounts"], s_fy["payouts"],
+                s_fy["opens"],
+                title_extra=" — FULL-YEAR cascade (1 Sep 2025 → 8 Sep 2026)")
 
-    # ---- save artifacts ----
+    # ---- save artifacts ---- #
     sub.to_csv(os.path.join(OUT, "trades_EU_GBP.csv"), index=False)
-    pd.DataFrame(s["combined"]).to_csv(os.path.join(OUT, "combined_equity.csv"),
-                                       index=False)
-    for a in s["accounts"]:
-        pd.DataFrame([{"date": str(d), "balance": b, "level": lv}
-                      for d, b, lv in a["curve"]]).to_csv(
-            os.path.join(OUT, f"account_{a['id']}_equity.csv"), index=False)
+    eu_bt.to_csv(os.path.join(OUT, "trades_EU_backtest.csv"), index=False)
+    full.to_csv(os.path.join(OUT, "trades_FULLYEAR_EU_GU.csv"), index=False)
+    for key, tag in (("FORWARD", "forward"), ("FULL YEAR", "fullyear")):
+        s = wins[key][0.015]
+        pd.DataFrame(s["combined"]).to_csv(
+            os.path.join(OUT, f"combined_equity_{tag}.csv"), index=False)
+        for a in s["accounts"]:
+            pd.DataFrame([{"date": str(d), "balance": b, "level": lv}
+                          for d, b, lv in a["curve"]]).to_csv(
+                os.path.join(OUT, f"account_{a['id']}_{tag}_equity.csv"),
+                index=False)
+
+    def wins_json(key):
+        s15, s10 = wins[key][0.015], wins[key][0.010]
+        out = {}
+        for rk, s in (("1.5", s15), ("1.0", s10)):
+            t = s["today"]
+            out[f"at_{rk}pct"] = {
+                "payouts": s["payouts"],
+                "accounts": [{"id": a["id"], "start": str(a["start"]),
+                              "n_trades": a["n_trades"],
+                              "breached": a["breached"]}
+                             for a in s["accounts"]],
+                "as_of_end": {"active_accounts": t["accounts"],
+                              "combined_funded": t["level"],
+                              "combined_balance": t["balance"],
+                              "total_paid_out": s["total_paid"]}}
+        return out
+
     json.dump({"plan": "EU+GU only, USDCAD dropped, 1.5% risk/trade",
                "fyfx_rules": {
                    "consistency_rule": "NONE (official)",
@@ -643,34 +759,18 @@ def main():
                    "max_loss": "8% static (add-on)",
                    "daily_dd": "4% soft",
                    "min_days_between_payouts": MIN_DAYS_BTWN},
-               "window": "2026-02-01 -> 2026-09-09",
+               "windows": {
+                   "backtest_eu_only_2025-09-01_2026-01-31": wins_json("BACKTEST"),
+                   "forward_eu_gu_2026-02-01_2026-09-08": wins_json("FORWARD"),
+                   "full_year_2025-09-01_2026-09-08": wins_json("FULL YEAR")},
                "verification_gate": {
-                   "trades": len(sub), "netR": round(float(sub.R.sum()), 2),
-                   "eu_trades": int((sub.pair == "EURUSD").sum()),
-                   "gu_trades": int((sub.pair == "GBPUSD").sum()),
+                   "forward_trades": len(sub),
+                   "netR": round(float(sub.R.sum()), 2),
+                   "backtest_eu_trades": len(eu_bt),
+                   "backtest_netR": round(float(eu_bt.R.sum()), 2),
                    "reproduces": "EU_GU_RISK_REPORT.md (+17.50%/+26.90%)"},
-               "at_1pct5": {
-                   "accounts": [{"id": a["id"], "start": str(a["start"]),
-                                 "n_trades": a["n_trades"],
-                                 "breached": a["breached"],
-                                 "events": a["events"]}
-                                for a in s["accounts"]],
-                   "payouts": s["payouts"],
-                   "opens": [{"account": o["account"], "date": str(o["date"])}
-                             for o in s["opens"]],
-                   "as_of": {"date": "2026-09-09",
-                             "active_accounts": s["today"]["accounts"],
-                             "combined_funded": s["today"]["level"],
-                             "combined_balance": s["today"]["balance"],
-                             "total_paid_out": s["total_paid"]}},
-               "at_1pct_reference": {
-                   "active_accounts": all_sims[0.010]["today"]["accounts"],
-                   "combined_funded": all_sims[0.010]["today"]["level"],
-                   "combined_balance": all_sims[0.010]["today"]["balance"],
-                   "total_paid_out": all_sims[0.010]["total_paid"]},
                "rule_sensitivity": [
-                   {"variant": label,
-                    "payouts": len(v["payouts"]),
+                   {"variant": label, "payouts": len(v["payouts"]),
                     "accounts": v["today"]["accounts"],
                     "total_paid_out": v["total_paid"],
                     "combined_balance": v["today"]["balance"]}
@@ -678,8 +778,7 @@ def main():
               open(os.path.join(OUT, "eu_gu_summary.json"), "w"),
               indent=2, default=str)
 
-    build_report(0.015, sub, s["accounts"], s["combined"], s["payouts"],
-                 s["opens"], s["today"], s["total_paid"], all_sims, sensitivity)
+    build_report(0.015, sub, eu_bt, eu_full, gu_fw, wins, sensitivity)
     print("Saved:", OUT)
 
 
