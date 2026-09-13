@@ -1,48 +1,34 @@
 """
-funded_plan.py — THE 3-SETUP FUNDED PLAN (single self-contained script)
-========================================================================
+funded_plan.py — LEGACY core-3 script (SUPERSEDED 13 Sep 2026)
+==============================================================
 
-Final trading plan, modelled end-to-end on a FundYourFX Classic $5,000 account
-with add-ons (90% split from day one, 8% max loss):
+**This module is superseded.** The FINAL plan of record is EU+GU only
+(Wed GBPUSD 15:00 GMT RR 1:3 · Thu EURUSD 11:30 GMT RR 1:2) at **1.5% of the
+account's current level per trade**, with the corrected FundYourFX rules:
+NO consistency rule, one-time 8% target, minimum $150 payout, fee refund after
+the 3rd payout buys a new account, scaling every 3 payouts.
 
-  Strategy : core-3 ORB setups, 5-minute/15-minute breakouts, 1% risk per trade
-               Mon  USDCAD 15:45 GMT  RR 1:3   (15-min ORB breakout)
-               Wed  GBPUSD 15:00 GMT  RR 1:3   (15-min ORB breakout)
-               Thu  EURUSD 11:30 GMT  RR 1:2   (5-min ORB breakout)
-  Data     : the 4 MT5 .htm exports in the repo root (EURUSD M15/M5,
-             GBPUSD M15, USDCAD M15 — forward window 1 Feb -> 8 Sep 2026)
-  Accounts : Classic $5K + add-ons: 10% profit target, 8% static max loss
-             (hard breach), 4% daily drawdown (soft), min 6 trading days,
-             25% best-day payout rule, 90% profit split, fee refund after the
-             2nd payout of each account, per-account scaling every 3 payouts:
-             $5K -> $7.5K -> $10K -> $25K -> $60K -> $150K
-  Growth   : multi-account "reinvest fee refunds" model — every fee refund
-             (after an account's 2nd payout) buys a NEW $5K account that starts
-             trading the SAME core-3 signals from that date. Risk stays 1% of
-             the account's level (never increased).
-  Window   : 1 Feb 2026 -> 9 Sep 2026 ONLY (no future replay).
+Running this file now DELEGATES to the verified engine:
 
-Run (from the repo root, with pandas / numpy / plotly installed):
+    strategy_analysis/eu_gu_funded_plan.py
 
-    python3 funded_plan.py
+which re-verifies every gate (A–E) on every run and writes the final
+deliverables to strategy_analysis/results/eu_gu_1pct5/ (final dashboard:
+strategy_analysis/results/eu_gu_1pct5/index.html).
 
-Expected final numbers (1% risk, corrected R-multiples):
-    active accounts : 1
-    combined funded : $5,000
-    combined balance: $5,104
-    total paid out  : $579
+To run the LEGACY core-3 simulation (Mon USDCAD + Wed GBP + Thu EUR @ 1% risk)
+explicitly, call it as a function:
 
-Outputs (written to strategy_analysis/results/multiacct/):
-    multiacct_equity.html    interactive 3-panel Plotly chart
-    index.html               same chart (convenience copy)
-    multiacct_report.md      detailed account-by-account report
-    multiacct_summary.json   machine-readable summary + payout ledger
-    combined_equity.csv      combined balance/level/account-count series
-    account_<n>_equity.csv   per-account balance/level series
+    python3 -c "import funded_plan; funded_plan.main()"
 
-The only external import is strategy_analysis/backtest_engine.py (trade
-execution). Data parsing, the core-3 setup list, the Classic funded-account
-simulation, the multi-account orchestration and the chart are all here.
+WHY THE PARSERS STILL LIVE HERE (do not refactor lightly):
+strategy_analysis/eu_gu_funded_plan.py, data_audit.py, m5_breakout_test.py,
+expansion_cashflow.py and project_4yr.py all IMPORT the MT5 parsers and
+helpers from this module (parse_mt5_htm, parse_mt5_csv_like, load_pairs,
+generate_core3_signals, setup_key, r_of, balance_on, level_on and the plan
+constants). Those functions are kept byte-identical so every verified result
+stays reproducible. The legacy core-3 main() is retained below for reference,
+but it is no longer the default action.
 """
 import os
 import re
@@ -709,4 +695,18 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # SUPERSEDED (13 Sep 2026): the default action now runs the FINAL verified
+    # EU+GU engine. The legacy core-3 simulation (main() above) is retained but
+    # must be called explicitly:
+    #     python3 -c "import funded_plan; funded_plan.main()"
+    import subprocess
+
+    _engine = os.path.join(HERE, "strategy_analysis", "eu_gu_funded_plan.py")
+    print("=" * 78)
+    print("SUPERSEDED: the legacy core-3 (USDCAD) plan is no longer the plan of")
+    print("record. Running the FINAL verified engine instead:")
+    print("    strategy_analysis/eu_gu_funded_plan.py   (EU+GU only @ 1.5% risk)")
+    print('Legacy core-3 run (NOT the plan of record):')
+    print('    python3 -c "import funded_plan; funded_plan.main()"')
+    print("=" * 78, flush=True)
+    sys.exit(subprocess.call([sys.executable, _engine]))
